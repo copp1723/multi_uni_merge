@@ -12,15 +12,50 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import QueuePool
 
+# Import BaseService for proper service registration
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.service_utils import BaseService, ServiceHealth, ServiceStatus
+
 logger = logging.getLogger(__name__)
 
-class PostgreSQLManager:
+class PostgreSQLManager(BaseService):
     """Manages PostgreSQL connections and configuration"""
     
     def __init__(self, database_url: str):
+        super().__init__("postgresql")  # Initialize BaseService with service name
         self.database_url = database_url
         self.parsed_url = urlparse(database_url)
         self.connection_params = self._parse_connection_params()
+    
+    async def _health_check(self) -> ServiceHealth:
+        """Implement service-specific health check"""
+        try:
+            # Test connection
+            conn = psycopg2.connect(
+                host=self.connection_params["host"],
+                port=self.connection_params["port"],
+                database=self.connection_params["database"],
+                user=self.connection_params["username"],
+                password=self.connection_params["password"],
+            )
+            conn.close()
+            
+            return ServiceHealth(
+                service_name="postgresql",
+                status=ServiceStatus.HEALTHY,
+                details={
+                    "database": self.connection_params["database"],
+                    "host": self.connection_params["host"],
+                    "port": self.connection_params["port"]
+                }
+            )
+        except Exception as e:
+            return ServiceHealth(
+                service_name="postgresql",
+                status=ServiceStatus.UNHEALTHY,
+                details={"error": str(e)}
+            )
     
     def _parse_connection_params(self) -> Dict[str, Any]:
         """Parse database URL into connection parameters"""
