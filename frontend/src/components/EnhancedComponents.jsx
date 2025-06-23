@@ -608,20 +608,28 @@ const AgentChatWindow = ({ agent }) => {
   const [messages, setMessages] = useState([]);
   const [modelOptions, setModelOptions] = useState([]);
   const [selectedModel, setSelectedModel] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const { sendMessage } = useWebSocket(agent.id, (msg) => {
+  const { sendMessage, connectionStatus } = useWebSocket(agent.id, (msg) => {
     setMessages((prev) => [...prev, msg]);
   });
 
   useEffect(() => {
     const loadConfig = async () => {
+      setIsLoading(true);
+      setError(null);
       try {
         const res = await fetch(`${API_BASE_URL}/api/agents/${agent.id}/config`);
+        if (!res.ok) throw new Error('Failed to load configuration');
         const data = await res.json();
         setModelOptions(data.data.available_models || []);
         setSelectedModel(data.data.current_model);
       } catch (err) {
         console.error('Failed to load config', err);
+        setError('Failed to load agent configuration');
+      } finally {
+        setIsLoading(false);
       }
     };
     loadConfig();
@@ -638,19 +646,46 @@ const AgentChatWindow = ({ agent }) => {
     sendMessage(content, selectedModel);
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-full">
+        Loading...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-red-500 text-center p-4">
+        {error}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b flex items-center justify-between">
         <span className="font-medium">{agent.name}</span>
-        <select
-          value={selectedModel}
-          onChange={(e) => setSelectedModel(e.target.value)}
-          className="border rounded px-2 py-1 text-sm"
-        >
-          {modelOptions.map((m) => (
-            <option key={m} value={m}>{m}</option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          <span
+            className={`text-xs ${
+              connectionStatus === 'connected' ? 'text-green-500' : 'text-red-500'
+            }`}
+          >
+            {connectionStatus === 'connected' ? '● Connected' : '● Disconnected'}
+          </span>
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="border rounded px-2 py-1 text-sm"
+          >
+            {modelOptions.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
       <ConversationHistory messages={messages} />
       <div className="border-t p-4">
@@ -659,6 +694,5 @@ const AgentChatWindow = ({ agent }) => {
     </div>
   );
 };
-
 export { EnhancedAgentCard, EnhancedMessage, EnhancedMessageInput, AgentChatWindow, MentionsAutocomplete, ConversationHistory };
 
