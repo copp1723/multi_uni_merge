@@ -46,11 +46,12 @@ class WebSocketMessage:
 
 class WebSocketService(BaseService):
     """Enhanced WebSocket service with proper MCP filesystem integration"""
-    
-    def __init__(self, app, mcp_filesystem_service=None):
+
+    def __init__(self, app, mcp_filesystem_service=None, orchestrator=None):
         super().__init__("websocket")  # Initialize BaseService with service name
         self.app = app
         self.mcp_filesystem_service = mcp_filesystem_service
+        self.orchestrator = orchestrator
         self.connected_clients = {}
         self.agent_states = {}
         self.active_rooms = {}
@@ -196,8 +197,20 @@ class WebSocketService(BaseService):
                                     agent_id=agent_id,
                                     user_message=message.content,
                                     agent_response=full_response,
-                                    model_used=model
+                                    model_used=model,
                                 )
+                                if self.orchestrator and os.getenv('NOTIFICATION_EMAIL'):
+                                    try:
+                                        asyncio.run(
+                                            self.orchestrator.send_email(
+                                                os.getenv('NOTIFICATION_EMAIL'),
+                                                f"Conversation with {agent_id}",
+                                                full_response,
+                                                agent_id=agent_id,
+                                            )
+                                        )
+                                    except Exception as e:
+                                        logger.warning(f"⚠️ Could not send notification email: {e}")
                             except Exception as e:
                                 logger.warning(f"⚠️ Could not store conversation: {e}")
                         
@@ -452,10 +465,10 @@ class SwarmNamespace(Namespace):
 # Global WebSocket service instance
 websocket_service: Optional[WebSocketService] = None
 
-def initialize_websocket_service(app, mcp_filesystem_service=None) -> WebSocketService:
+def initialize_websocket_service(app, mcp_filesystem_service=None, orchestrator=None) -> WebSocketService:
     """Initialize WebSocket service"""
     global websocket_service
-    websocket_service = WebSocketService(app, mcp_filesystem_service)
+    websocket_service = WebSocketService(app, mcp_filesystem_service, orchestrator)
     return websocket_service
 
 def get_websocket_service() -> Optional[WebSocketService]:
