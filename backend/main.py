@@ -261,8 +261,20 @@ class SwarmApplication:
             config = self.orchestrator.get_agent_config(agent_id)
             if not config:
                 raise SwarmError(f"Agent {agent_id} not found", status_code=404)
-            
+
             return jsonify(format_api_response(config))
+
+        @self.app.route('/api/models', methods=['GET'])
+        @handle_errors("Failed to get model list")
+        def get_models():
+            """Get available OpenRouter models"""
+            openrouter = get_openrouter_service()
+            if not openrouter:
+                raise SwarmError("OpenRouter service not initialized")
+
+            models = openrouter.get_popular_models()
+            data = [m.__dict__ for m in models]
+            return jsonify(format_api_response(data))
     
     def _get_missing_configs(self) -> list:
         """Get list of missing required configurations"""
