@@ -14,14 +14,28 @@ function App() {
   const [message, setMessage] = useState('');
   const [notifications, setNotifications] = useState([]);
   const [selectedModel, setSelectedModel] = useState('GPT-4o');
+const [models, setModels] = useState([]);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
 
   // Load agents on mount
   useEffect(() => {
     loadAgents();
   }, []);
+  useEffect(() => {
+    if (selectedAgent) {
+      fetch(`${API_BASE_URL}/api/agents/${selectedAgent.id}/config`)
+        .then(res => res.json())
+        .then(data => {
+          setModels(data.data.available_models || []);
+          setSelectedModel(data.data.current_model);
+        })
+        .catch(() => console.error("Failed to load model config"));
+    }
+  }, [selectedAgent]);
+
 
   const loadAgents = async () => {
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/agents`);
       const data = await response.json();
@@ -73,13 +87,6 @@ function App() {
     };
     return iconMap[agentName] || MessageSquare;
   };
-
-  const models = [
-    { name: 'GPT-4o', description: 'Most capable model for complex tasks' },
-    { name: 'GPT-4', description: 'Advanced reasoning and analysis' },
-    { name: 'Claude-3', description: 'Excellent for writing and analysis' },
-    { name: 'Gemini Pro', description: 'Google\'s advanced language model' }
-  ];
 
   return (
     <div className="flex h-screen bg-white">
@@ -233,7 +240,7 @@ function App() {
               </button>
               {showModelDropdown && (
                 <div className="absolute top-full right-0 mt-2 w-70 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                  {models.map((model) => (
+                  {(models || []).map((model) => (
                     <div
                       key={model.name}
                       className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"

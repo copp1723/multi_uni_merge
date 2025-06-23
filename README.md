@@ -49,6 +49,12 @@ cd backend && python main.py
 # Start frontend (in another terminal)
 cd frontend && npm run dev
 ```
+## 🗣️ Usage
+- Select an agent from the sidebar to open its dedicated chat window.
+- Use `@` to mention additional agents while typing; suggestions appear automatically.
+- Previous conversations are loaded when you reopen a chat, letting you continue where you left off.
+- The model selector now reflects options from the agent configuration.
+
 
 ## 📁 **Repository Structure**
 

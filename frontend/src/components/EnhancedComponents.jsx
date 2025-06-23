@@ -1,13 +1,38 @@
 // 🎨 ENHANCED USER EXPERIENCE COMPONENTS
 // Advanced chat interface with optimized workflows
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const WS_URL = import.meta.env.VITE_WS_URL || API_BASE_URL;
+
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Send, Bot, User, Settings, Zap, Brain, Search, Filter, Star, Clock, CheckCircle, AlertCircle, Loader, Plus, X, ChevronDown, ChevronUp, MessageSquare, Users, FileText, Mail, Database, Code, Lightbulb, BarChart3, Mic, MicOff, Volume2, VolumeX, Copy, Download, Share, Bookmark, Tag, Archive, Trash2, MoreHorizontal, Maximize2, Minimize2, RefreshCw, Eye, EyeOff, Heart, ThumbsUp, ThumbsDown, Flag, Shield, Zap as ZapIcon, Sparkles, Target, Rocket, Crown, Award, TrendingUp, Activity, Monitor, Cpu, HardDrive, Wifi, WifiOff, Signal, Battery, BatteryLow, Sun, Moon, Palette, Layout, Grid, List, Columns, Sidebar, Menu, Home, Inbox, Calendar, Bell, BellOff, Info, ExternalLink, Link, Unlink, Lock, Unlock, Key, UserCheck, UserX, UserPlus, UserMinus } from 'lucide-react';
 import { io } from 'socket.io-client';
 
 // Enhanced Agent Card with Performance Indicators
+// WebSocket helper hook
+const useWebSocket = (agentId, onMessage) => {
+  const socketRef = useRef(null);
+  useEffect(() => {
+    const socket = io(WS_URL, { path: "/socket.io", transports: ["websocket"] });
+    socketRef.current = socket;
+    socket.on("message_response", (data) => {
+      if (!agentId || data.agent_id === agentId) {
+        onMessage?.(data.message);
+      }
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, [agentId, onMessage]);
+  const sendMessage = (message, model = "gpt-4o") => {
+    socketRef.current?.emit("agent_message", { agent_id: agentId, message, model });
+  };
+  return { sendMessage };
+};
+
 const EnhancedAgentCard = ({ agent, isSelected, onSelect, performance, isOnline }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+
   const [showPerformance, setShowPerformance] = useState(false);
 
   const getAgentIcon = (type) => {
@@ -546,5 +571,94 @@ const EnhancedMessageInput = ({ onSendMessage, agents, isLoading, placeholder })
   );
 };
 
-export { EnhancedAgentCard, EnhancedMessage, EnhancedMessageInput };
+
+// Conversation history list
+const ConversationHistory = ({ messages }) => (
+  <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    {messages.map((msg) => (
+      <EnhancedMessage key={msg.id} message={msg} />
+    ))}
+  </div>
+);
+
+// Mentions autocomplete dropdown
+const MentionsAutocomplete = ({ query, agents, onSelect }) => {
+  if (!query) return null;
+  const filtered = agents.filter((a) =>
+    a.name.toLowerCase().includes(query.toLowerCase())
+  );
+  if (filtered.length === 0) return null;
+  return (
+    <div className="absolute z-20 mt-1 bg-white border rounded shadow max-h-40 overflow-y-auto">
+      {filtered.map((agent) => (
+        <div
+          key={agent.id}
+          onClick={() => onSelect(agent.name)}
+          className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+        >
+          @{agent.name}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Per-agent chat window component
+const AgentChatWindow = ({ agent }) => {
+  const [messages, setMessages] = useState([]);
+  const [modelOptions, setModelOptions] = useState([]);
+  const [selectedModel, setSelectedModel] = useState('');
+
+  const { sendMessage } = useWebSocket(agent.id, (msg) => {
+    setMessages((prev) => [...prev, msg]);
+  });
+
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/agents/${agent.id}/config`);
+        const data = await res.json();
+        setModelOptions(data.data.available_models || []);
+        setSelectedModel(data.data.current_model);
+      } catch (err) {
+        console.error('Failed to load config', err);
+      }
+    };
+    loadConfig();
+  }, [agent.id]);
+
+  const handleSend = ({ content, mentions }) => {
+    const userMsg = {
+      id: Date.now(),
+      content,
+      sender_type: 'user',
+      timestamp: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+    sendMessage(content, selectedModel);
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="p-4 border-b flex items-center justify-between">
+        <span className="font-medium">{agent.name}</span>
+        <select
+          value={selectedModel}
+          onChange={(e) => setSelectedModel(e.target.value)}
+          className="border rounded px-2 py-1 text-sm"
+        >
+          {modelOptions.map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
+      </div>
+      <ConversationHistory messages={messages} />
+      <div className="border-t p-4">
+        <EnhancedMessageInput onSendMessage={handleSend} agents={[agent]} />
+      </div>
+    </div>
+  );
+};
+
+export { EnhancedAgentCard, EnhancedMessage, EnhancedMessageInput, AgentChatWindow, MentionsAutocomplete, ConversationHistory };
 
