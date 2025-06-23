@@ -17,21 +17,21 @@ from flask_socketio import SocketIO
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
 
-# Import utilities
-from utils.error_handler import SwarmError, create_error_response, handle_errors
-from utils.async_utils import task_manager
-from utils.service_utils import service_registry, format_api_response
+# Import utilities - using relative imports
+from .utils.error_handler import SwarmError, create_error_response, handle_errors
+from .utils.async_utils import task_manager
+from .utils.service_utils import service_registry, format_api_response
 
-# Import services
-from services.postgresql_service import initialize_postgresql, get_postgresql_service
-from services.openrouter_service import initialize_openrouter, get_openrouter_service
-from services.supermemory_service import initialize_supermemory, get_supermemory_service
-from services.mcp_filesystem import initialize_mcp_filesystem, get_mcp_filesystem_service
-from services.mailgun_service import initialize_mailgun, get_mailgun_service
-from services.websocket_service import initialize_websocket_service, SwarmNamespace
+# Import services - using relative imports
+from .services.postgresql_service import initialize_postgresql, get_postgresql_service
+from .services.openrouter_service import initialize_openrouter, get_openrouter_service
+from .services.supermemory_service import initialize_supermemory, get_supermemory_service
+from .services.mcp_filesystem import initialize_mcp_filesystem, get_mcp_filesystem_service
+from .services.mailgun_service import initialize_mailgun, get_mailgun_service
+from .services.websocket_service import initialize_websocket_service, SwarmNamespace
 
-# Import orchestrator
-from swarm_orchestrator import SwarmOrchestrator
+# Import orchestrator - using relative import
+from .swarm_orchestrator import SwarmOrchestrator
 
 import logging
 from datetime import datetime, timezone
@@ -416,4 +416,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
