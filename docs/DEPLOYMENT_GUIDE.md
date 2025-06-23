@@ -120,7 +120,7 @@ cd backend
 pip install -r ../config/requirements.txt
 
 # Run database migrations (if needed)
-python -c "from main import create_app; app = create_app()"
+python main.py --migrate
 
 # Start the application
 python main.py
