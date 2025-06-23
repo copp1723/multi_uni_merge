@@ -73,19 +73,21 @@ class WebSocketService(BaseService):
         """Implement service-specific health check"""
         try:
             return ServiceHealth(
-                service_name="websocket",
                 status=ServiceStatus.HEALTHY,
+                message="WebSocket service operational",
                 details={
                     "connected_clients": len(self.connected_clients),
                     "active_rooms": len(self.active_rooms),
                     "mcp_filesystem": "connected" if self.mcp_filesystem_service else "not_connected"
-                }
+                },
+                last_check=datetime.now(timezone.utc).isoformat()
             )
         except Exception as e:
             return ServiceHealth(
-                service_name="websocket",
                 status=ServiceStatus.UNHEALTHY,
-                details={"error": str(e)}
+                message=f"WebSocket service error: {str(e)}",
+                details={"error": str(e)},
+                last_check=datetime.now(timezone.utc).isoformat()
             )
     
     def start_streaming_response(self, session_id: str, message: WebSocketMessage, model: str):

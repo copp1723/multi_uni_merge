@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 """
 OpenRouter service for AI model interactions with streaming support
 Robust implementation with proper error handling and model management
@@ -85,27 +86,19 @@ class OpenRouterService(BaseService):
                 models_data = response.json()
                 model_count = len(models_data.get("data", []))
                 
-                return ServiceHealth(
-                    service_name="openrouter",
-                    status=ServiceStatus.HEALTHY,
-                    details={
+                return ServiceHealth(status=ServiceStatus.HEALTHY, message="Service operational", details={
                         "api_status": "connected",
                         "available_models": model_count,
                         "base_url": self.base_url
-                    }
-                )
+                    }, last_check=datetime.now(timezone.utc).isoformat())
             else:
                 return ServiceHealth(
-                    service_name="openrouter",
+                    
                     status=ServiceStatus.UNHEALTHY,
                     details={"error": f"API returned status {response.status_code}"}
                 )
         except Exception as e:
-            return ServiceHealth(
-                service_name="openrouter",
-                status=ServiceStatus.UNHEALTHY,
-                details={"error": str(e)}
-            )
+            return ServiceHealth(status=ServiceStatus.UNHEALTHY, message="Service operational", details={"error": str(e)}, last_check=datetime.now(timezone.utc).isoformat())
     
     def get_available_models(self) -> List[ModelInfo]:
         """Get list of available models with caching"""

@@ -1,0 +1,21 @@
+{
+  "name": "swarm-multi-agent-system",
+  "version": "3.0.0",
+  "description": "Professional multi-agent AI collaboration platform",
+  "scripts": {
+    "build": "./build.sh",
+    "install": "cd frontend && npm install",
+    "start": "python3 backend/main.py"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/copp1723/multi_uni_merge.git"
+  },
+  "author": "Swarm Team",
+  "license": "MIT"
+}
+

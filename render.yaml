@@ -1,20 +1,18 @@
-# 🚀 Render Configuration for Swarm Multi-Agent System v3.0
-
 services:
   - type: web
-    name: swarm-multi-agent-system-v3
+    name: swarm-multi-agent-system
     env: python
-    region: oregon
+    buildCommand: "./build.sh"
+    startCommand: "python3 backend/main.py"
     plan: starter
-    buildCommand: pip install -r config/requirements.txt
-    startCommand: python backend/main.py
     envVars:
+      - key: HOST
+        value: "0.0.0.0"
+      - key: PORT
+        value: "5000"
+      - key: DEBUG
+        value: "false"
       - key: PYTHON_VERSION
-        value: 3.11.0
-      - key: PYTHONPATH
-        value: /opt/render/project/src
-      - key: FLASK_ENV
-        value: production
-    healthCheckPath: /api/health
-    autoDeploy: true
+        value: "3.11"
+    healthCheckPath: "/api/health"
 

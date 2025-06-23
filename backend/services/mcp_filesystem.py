@@ -77,32 +77,20 @@ class MCPFilesystemService(BaseService):
         try:
             # Check if base path exists and is writable
             if not self.base_path.exists():
-                return ServiceHealth(
-                    service_name="mcp_filesystem",
-                    status=ServiceStatus.UNHEALTHY,
-                    details={"error": "Base path does not exist"}
-                )
+                return ServiceHealth(status=ServiceStatus.UNHEALTHY, message="Service operational", details={"error": "Base path does not exist"}, last_check=datetime.now(timezone.utc).isoformat())
             
             # Test write permissions
             test_file = self.base_path / ".health_check"
             test_file.write_text("health check")
             test_file.unlink()
             
-            return ServiceHealth(
-                service_name="mcp_filesystem",
-                status=ServiceStatus.HEALTHY,
-                details={
+            return ServiceHealth(status=ServiceStatus.HEALTHY, message="Service operational", details={
                     "base_path": str(self.base_path),
                     "max_file_size": self.max_file_size,
                     "permissions": "writable"
-                }
-            )
+                }, last_check=datetime.now(timezone.utc).isoformat())
         except Exception as e:
-            return ServiceHealth(
-                service_name="mcp_filesystem",
-                status=ServiceStatus.UNHEALTHY,
-                details={"error": str(e)}
-            )
+            return ServiceHealth(status=ServiceStatus.UNHEALTHY, message="Service operational", details={"error": str(e)}, last_check=datetime.now(timezone.utc).isoformat())
     
     def _validate_path(self, path: str) -> Path:
         """Validate and resolve path within workspace boundaries"""

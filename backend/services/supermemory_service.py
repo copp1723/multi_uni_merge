@@ -54,21 +54,13 @@ class SupermemoryService(BaseService):
     async def _health_check(self) -> ServiceHealth:
         """Implement service-specific health check"""
         try:
-            return ServiceHealth(
-                service_name="supermemory",
-                status=ServiceStatus.HEALTHY,
-                details={
+            return ServiceHealth(status=ServiceStatus.HEALTHY, message="Service operational", details={
                     "api_status": "configured",
                     "base_url": self.base_url,
                     "api_key_format": "valid" if self.api_key.startswith("sm_") else "invalid"
-                }
-            )
+                }, last_check=datetime.now(timezone.utc).isoformat())
         except Exception as e:
-            return ServiceHealth(
-                service_name="supermemory",
-                status=ServiceStatus.UNHEALTHY,
-                details={"error": str(e)}
-            )
+            return ServiceHealth(status=ServiceStatus.UNHEALTHY, message="Service operational", details={"error": str(e)}, last_check=datetime.now(timezone.utc).isoformat())
     
     def store_conversation(
         self,

@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 """
 PostgreSQL Configuration and Connection Helper
 Handles PostgreSQL-specific setup, connection pooling, and optimization
@@ -41,21 +42,13 @@ class PostgreSQLManager(BaseService):
             )
             conn.close()
             
-            return ServiceHealth(
-                service_name="postgresql",
-                status=ServiceStatus.HEALTHY,
-                details={
+            return ServiceHealth(status=ServiceStatus.HEALTHY, message="Service operational", details={
                     "database": self.connection_params["database"],
                     "host": self.connection_params["host"],
                     "port": self.connection_params["port"]
-                }
-            )
+                }, last_check=datetime.now(timezone.utc).isoformat())
         except Exception as e:
-            return ServiceHealth(
-                service_name="postgresql",
-                status=ServiceStatus.UNHEALTHY,
-                details={"error": str(e)}
-            )
+            return ServiceHealth(status=ServiceStatus.UNHEALTHY, message="Service operational", details={"error": str(e)}, last_check=datetime.now(timezone.utc).isoformat())
     
     def _parse_connection_params(self) -> Dict[str, Any]:
         """Parse database URL into connection parameters"""
