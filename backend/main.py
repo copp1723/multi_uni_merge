@@ -3,6 +3,7 @@
 Enhanced with async patterns, comprehensive error handling, and all services integrated
 """
 
+import argparse
 import asyncio
 import os
 import sys
@@ -13,6 +14,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_socketio import SocketIO
+from flask_migrate import Migrate, upgrade
 
 # Add project paths
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -34,6 +36,7 @@ from .services.agent_service import initialize_agent_service, set_mcp_filesystem
 
 # Import orchestrator - using relative import
 from .swarm_orchestrator import SwarmOrchestrator
+from .models import db
 
 import logging
 from datetime import datetime, timezone
@@ -47,6 +50,8 @@ logger = logging.getLogger(__name__)
 # Initialize global SQLAlchemy instance
 db = SQLAlchemy()
 
+# Global Flask-Migrate instance
+migrate = Migrate()
 
 class SwarmApplication:
     """Main application class with modern async patterns"""
@@ -70,7 +75,7 @@ class SwarmApplication:
                 "SECRET_KEY", "dev-secret-key-change-in-production"
             ),
             # Database configuration
-            "DATABASE_URL": os.getenv("DATABASE_URL"),
+            "DATABASE_URL": os.getenv("DATABASE_URL", "sqlite:///swarm.db"),
             # OpenRouter configuration
             "OPENROUTER_API_KEY": os.getenv("OPENROUTER_API_KEY"),
             # Supermemory configuration
@@ -80,6 +85,7 @@ class SwarmApplication:
             "MAILGUN_API_KEY": os.getenv("MAILGUN_API_KEY"),
             "MAILGUN_DOMAIN": os.getenv("MAILGUN_DOMAIN"),
             "MAILGUN_WEBHOOK_SIGNING_KEY": os.getenv("MAILGUN_WEBHOOK_SIGNING_KEY"),
+            "NOTIFICATION_EMAIL": os.getenv("NOTIFICATION_EMAIL"),
             # MCP Filesystem configuration
             "MCP_WORKSPACE_PATH": os.getenv(
                 "MCP_WORKSPACE_PATH", "/tmp/swarm_workspace"
@@ -107,8 +113,9 @@ class SwarmApplication:
             }
         )
 
-        # Initialize SQLAlchemy
+        # Initialize extensions
         db.init_app(app)
+        migrate.init_app(app, db)
 
         # Initialize SocketIO
         socketio = SocketIO(
@@ -320,7 +327,6 @@ class SwarmApplication:
                 raise SwarmError(f"Agent {agent_id} not found", status_code=404)
 
             return jsonify(format_api_response(config))
-
     def _get_missing_configs(self) -> list:
         """Get list of missing required configurations"""
         required_configs = [
@@ -330,8 +336,14 @@ class SwarmApplication:
             "SUPERMEMORY_BASE_URL",
         ]
 
-        return [config for config in required_configs if not self.config.get(config)]
+        optional_configs = ["MAILGUN_API_KEY", "MAILGUN_DOMAIN"]
 
+        missing_required = [c for c in required_configs if not self.config.get(c)]
+        missing_optional = [c for c in optional_configs if not self.config.get(c)]
+        if missing_optional:
+            logger.warning(f"⚠️ Optional configs missing: {missing_optional}")
+
+        return missing_required
     async def initialize_services(self):
         """Initialize all services asynchronously"""
         logger.info("🔧 Initializing services...")
@@ -385,8 +397,14 @@ class SwarmApplication:
             else:
                 logger.warning("⚠️ Mailgun not configured")
 
+            # Initialize Swarm Orchestrator
+            self.orchestrator = SwarmOrchestrator()
+            logger.info("✅ Swarm Orchestrator initialized")
+
             # Initialize WebSocket service
-            websocket_service = initialize_websocket_service(self.app, mcp_service)
+            websocket_service = initialize_websocket_service(
+                self.app, mcp_service, self.orchestrator
+            )
             service_registry.register(websocket_service)
 
             # Register WebSocket namespace
@@ -394,16 +412,11 @@ class SwarmApplication:
             self.socketio.on_namespace(swarm_namespace)
             logger.info("✅ WebSocket service initialized")
 
-            # Initialize Swarm Orchestrator
-            self.orchestrator = SwarmOrchestrator()
-            logger.info("✅ Swarm Orchestrator initialized")
-
             # Initialize Agent service
             agent_service = initialize_agent_service(self.orchestrator)
             set_mcp_filesystem_service(mcp_service)
             service_registry.register(agent_service)
             logger.info("✅ Agent service initialized")
-
             self._services_initialized = True
             logger.info("🎉 All services initialized successfully!")
 
@@ -478,6 +491,21 @@ def create_app():
 
 def main():
     """Main entry point"""
+    parser = argparse.ArgumentParser(description="Swarm backend entrypoint")
+    parser.add_argument(
+        "--migrate",
+        action="store_true",
+        help="Run database migrations and exit",
+    )
+    args = parser.parse_args()
+
+    if args.migrate:
+        app = swarm_app.create_app()
+        with app.app_context():
+            upgrade()
+        print("✅ Database migrations applied")
+        return
+
     swarm_app.run()
 
 

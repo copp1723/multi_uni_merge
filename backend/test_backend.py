@@ -7,6 +7,7 @@ Tests all backend services and components
 import os
 import sys
 import asyncio
+import pytest
 import logging
 from pathlib import Path
 
@@ -83,7 +84,7 @@ def test_error_handling():
         logger.error(f"❌ Error handling test failed: {e}")
         return False
 
-
+@pytest.mark.asyncio
 async def test_async_utilities():
     """Test async utilities"""
     logger.info("🔍 Testing async utilities...")
@@ -157,7 +158,7 @@ def test_service_registry():
         logger.error(f"❌ Service registry test failed: {e}")
         return False
 
-
+@pytest.mark.asyncio
 async def test_mcp_filesystem():
     """Test MCP filesystem service"""
     logger.info("🔍 Testing MCP filesystem service...")
@@ -237,7 +238,6 @@ def test_swarm_orchestrator():
     except Exception as e:
         logger.error(f"❌ Swarm orchestrator test failed: {e}")
         return False
-
 
 def test_agent_service():
     """Test agent service registration and config retrieval"""
@@ -325,6 +325,44 @@ async def test_models_endpoint():
         return False
 
 
+def test_database_models():
+    """Test SQLAlchemy models"""
+    logger.info("🔍 Testing database models...")
+
+    try:
+        from flask import Flask
+        from models import db, User, AgentTask
+
+        app = Flask(__name__)
+        app.config.update({
+            'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+            'SQLALCHEMY_TRACK_MODIFICATIONS': False,
+        })
+
+        db.init_app(app)
+
+        with app.app_context():
+            db.create_all()
+
+            user = User(email='test@example.com', name='Test')
+            db.session.add(user)
+            db.session.commit()
+
+            task = AgentTask(user_id=user.id, agent_id='agent', input='hi', output='ok')
+            db.session.add(task)
+            db.session.commit()
+
+            assert User.query.count() == 1
+            assert AgentTask.query.count() == 1
+
+        logger.info("✅ Database models tests passed")
+        return True
+
+    except Exception as e:
+        logger.error(f"❌ Database models test failed: {e}")
+        return False
+
+@pytest.mark.asyncio
 async def test_application_creation():
     """Test main application creation"""
     logger.info("🔍 Testing application creation...")
@@ -353,6 +391,22 @@ async def test_application_creation():
         logger.error(f"❌ Application creation test failed: {e}")
         return False
 
+def test_optional_mailgun_config():
+    """Ensure missing Mailgun config does not count as required"""
+    try:
+        import sqlalchemy  # noqa: F401
+    except ImportError:
+        logger.warning("sqlalchemy not installed; skipping test")
+        return True
+
+    from main import SwarmApplication
+
+    os.environ.pop('MAILGUN_API_KEY', None)
+    os.environ.pop('MAILGUN_DOMAIN', None)
+
+    app_instance = SwarmApplication()
+    missing = app_instance._get_missing_configs()
+    return 'MAILGUN_API_KEY' not in missing and 'MAILGUN_DOMAIN' not in missing
 
 async def run_all_tests():
     """Run all backend tests"""
@@ -367,14 +421,15 @@ async def run_all_tests():
     test_results.append(("Service Registry", test_service_registry()))
     test_results.append(("Swarm Orchestrator", test_swarm_orchestrator()))
     test_results.append(("Agent Service", test_agent_service()))
-
+    test_results.append(("Database Models", test_database_models()))
+    
     # Asynchronous tests
     test_results.append(("Async Utilities", await test_async_utilities()))
     test_results.append(("MCP Filesystem", await test_mcp_filesystem()))
     test_results.append(("Application Creation", await test_application_creation()))
     test_results.append(("SQLAlchemy Setup", test_sqlalchemy_setup()))
     test_results.append(("Models Endpoint", await test_models_endpoint()))
-
+    test_results.append(("Optional Mailgun Config", test_optional_mailgun_config()))
     # Print results
     logger.info("\n" + "=" * 50)
     logger.info("📊 TEST RESULTS SUMMARY")

@@ -50,6 +50,11 @@ cd backend && python main.py
 cd frontend && npm run dev
 ```
 
+After both servers start, open `http://localhost:3000` in your browser. Select
+an agent from the sidebar to open a dedicated chat window. Use the `@` key to
+trigger mentions autocomplete and bring other agents into the conversation. Past
+messages will load automatically so you can continue previous chats.
+
 ## 📁 **Repository Structure**
 
 ```

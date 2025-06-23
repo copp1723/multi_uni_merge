@@ -546,5 +546,90 @@ const EnhancedMessageInput = ({ onSendMessage, agents, isLoading, placeholder })
   );
 };
 
-export { EnhancedAgentCard, EnhancedMessage, EnhancedMessageInput };
+// WebSocket helper hook
+const useWebSocket = (onMessage, onHistory, onStatus) => {
+  const socketRef = useRef(null);
+
+  useEffect(() => {
+    const base = import.meta.env.VITE_WS_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    socketRef.current = io(base + '/swarm', {
+      transports: ['websocket', 'polling']
+    });
+
+    socketRef.current.on('connect', () => onStatus?.('connected'));
+    socketRef.current.on('disconnect', () => onStatus?.('disconnected'));
+    socketRef.current.on('message_response', (data) => onMessage?.(data));
+    socketRef.current.on('conversation_history', (data) => onHistory?.(data));
+
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, []);
+
+  const sendMessage = (payload) => {
+    socketRef.current?.emit('user_message', payload);
+  };
+
+  const requestHistory = (agentId) => {
+    socketRef.current?.emit('history_request', { agent_id: agentId });
+  };
+
+  return { sendMessage, requestHistory };
+};
+
+// Conversation history component
+const ConversationHistory = ({ messages, currentUser }) => (
+  <div className="space-y-4">
+    {messages.map((msg) => (
+      <EnhancedMessage
+        key={msg.id}
+        message={msg}
+        currentUser={currentUser}
+      />
+    ))}
+  </div>
+);
+
+// Per-agent chat window
+const AgentChatWindow = ({ agent }) => {
+  const [messages, setMessages] = useState([]);
+  const [status, setStatus] = useState('connecting');
+  const { sendMessage, requestHistory } = useWebSocket(
+    (data) => setMessages((prev) => [...prev, data.message]),
+    (data) => setMessages(data.messages || []),
+    setStatus
+  );
+
+  useEffect(() => {
+    if (agent) {
+      requestHistory(agent.id);
+    }
+  }, [agent]);
+
+  const handleSend = (msg) => {
+    sendMessage({ ...msg, agent_id: agent.id });
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between p-2 border-b">
+        <span className="text-sm font-medium">{agent.name}</span>
+        <span className="text-xs text-gray-500 capitalize">{status}</span>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4">
+        <ConversationHistory messages={messages} />
+      </div>
+      <EnhancedMessageInput onSendMessage={handleSend} agents={[agent]} />
+    </div>
+  );
+};
+
+export {
+  EnhancedAgentCard,
+  EnhancedMessage,
+  EnhancedMessageInput,
+  AgentChatWindow,
+  ConversationHistory,
+  useWebSocket
+};
 
