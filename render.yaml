@@ -13,7 +13,7 @@ services:
       echo "🔧 Starting build process..."
       echo "📦 Installing Python dependencies..."
       pip install --upgrade pip
-      pip install -r config/requirements.txt
+      pip install -r requirements.txt
       echo "🔨 Building React frontend..."
       cd frontend
       npm install

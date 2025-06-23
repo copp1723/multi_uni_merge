@@ -7,6 +7,7 @@ Flask-SocketIO==5.3.6
 psycopg2-binary==2.9.10
 SQLAlchemy==2.0.41
 Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.0.5
 
 # HTTP client
 requests==2.31.0
@@ -22,6 +23,17 @@ python-socketio==5.10.0
 
 # Async support
 eventlet==0.33.3
+aiohttp==3.12.13
+aiofiles==24.1.0
+
+# Additional dependencies
+bcrypt==4.3.0
+PyJWT==2.10.1
+cryptography==45.0.4
+redis==6.2.0
+email-validator==2.2.0
+structlog==25.4.0
+psutil==7.0.0
 
 # Data validation (updated for Python 3.13 compatibility)
 pydantic==2.10.3

@@ -17,15 +17,20 @@ logger = logging.getLogger(__name__)
 # Add the current directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Import the Flask app factory and SocketIO
-from backend.main import create_app, swarm_app
+# Import the Flask app factory
+from backend.main import create_app
 
 # Create the application instance
 logger.info("Creating Flask application...")
 app = create_app()
 
-# Get the SocketIO instance for deployment platforms that need it
-socketio = swarm_app.socketio
+# Import SocketIO after app creation to avoid circular imports
+try:
+    from backend.main import swarm_app
+    socketio = swarm_app.socketio if hasattr(swarm_app, 'socketio') else None
+except Exception as e:
+    logger.warning(f"Could not import socketio: {e}")
+    socketio = None
 
 if __name__ == '__main__':
     # Use SocketIO run method for proper WebSocket support
@@ -34,4 +39,7 @@ if __name__ == '__main__':
     debug = os.getenv('DEBUG', 'false').lower() == 'true'
     
     logger.info(f"Starting server on {host}:{port} (debug={debug})")
-    socketio.run(app, host=host, port=port, debug=debug, allow_unsafe_werkzeug=True)
+    if socketio:
+        socketio.run(app, host=host, port=port, debug=debug, allow_unsafe_werkzeug=True)
+    else:
+        app.run(host=host, port=port, debug=debug)
