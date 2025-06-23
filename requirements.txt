@@ -1,0 +1,34 @@
+# Core Flask dependencies
+Flask==3.0.0
+Flask-CORS==4.0.0
+Flask-SocketIO==5.3.6
+
+# Database
+psycopg2-binary==2.9.9
+
+# HTTP client
+requests==2.31.0
+
+# WSGI server for production
+gunicorn==21.2.0
+
+# Environment management
+python-dotenv==1.0.0
+
+# WebSocket support
+python-socketio==5.10.0
+
+# Async support
+eventlet==0.33.3
+
+# Data validation
+pydantic==2.5.0
+
+# Utilities
+click==8.1.7
+python-dateutil==2.8.2
+
+# Development dependencies (optional)
+pytest==7.4.3
+black==23.11.0
+flake8==6.1.0
