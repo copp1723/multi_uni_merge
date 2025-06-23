@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 """
 PostgreSQL Configuration and Connection Helper
 Handles PostgreSQL-specific setup, connection pooling, and optimization
@@ -6,6 +5,7 @@ Handles PostgreSQL-specific setup, connection pooling, and optimization
 
 import os
 import logging
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 from urllib.parse import urlparse
 import psycopg2
@@ -13,10 +13,8 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import QueuePool
 
-# Import BaseService for proper service registration
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.service_utils import BaseService, ServiceHealth, ServiceStatus
+# Import BaseService using relative imports
+from ..utils.service_utils import BaseService, ServiceHealth, ServiceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -42,13 +40,23 @@ class PostgreSQLManager(BaseService):
             )
             conn.close()
             
-            return ServiceHealth(status=ServiceStatus.HEALTHY, message="Service operational", details={
+            return ServiceHealth(
+                status=ServiceStatus.HEALTHY, 
+                message="Service operational", 
+                details={
                     "database": self.connection_params["database"],
                     "host": self.connection_params["host"],
                     "port": self.connection_params["port"]
-                }, last_check=datetime.now(timezone.utc).isoformat())
+                }, 
+                last_check=datetime.now(timezone.utc).isoformat()
+            )
         except Exception as e:
-            return ServiceHealth(status=ServiceStatus.UNHEALTHY, message="Service operational", details={"error": str(e)}, last_check=datetime.now(timezone.utc).isoformat())
+            return ServiceHealth(
+                status=ServiceStatus.UNHEALTHY, 
+                message=f"Connection failed: {str(e)}", 
+                details={"error": str(e)}, 
+                last_check=datetime.now(timezone.utc).isoformat()
+            )
     
     def _parse_connection_params(self) -> Dict[str, Any]:
         """Parse database URL into connection parameters"""
@@ -280,4 +288,3 @@ def get_postgresql_service() -> Optional[PostgreSQLManager]:
 
 # Alias for backward compatibility
 PostgreSQLService = PostgreSQLManager
-
