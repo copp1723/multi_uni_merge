@@ -1,0 +1,161 @@
+# 🚀 DEPLOYMENT CONFIGURATION
+
+# ===== RENDER DEPLOYMENT SETTINGS =====
+
+# Backend Web Service Configuration
+backend_service:
+  name: swarm-agents-backend
+  type: web_service
+  runtime: python3
+  build_command: pip install -r requirements.txt
+  start_command: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT src.main:app
+  environment: production
+  auto_deploy: true
+  
+# Frontend Static Site Configuration  
+frontend_service:
+  name: swarm-agents-frontend
+  type: static_site
+  build_command: npm install && npm run build
+  publish_directory: dist
+  environment: production
+  auto_deploy: true
+
+# ===== ENVIRONMENT VARIABLES FOR RENDER =====
+production_env_vars:
+  # Required API Keys
+  OPENROUTER_API_KEY: "{{ secrets.OPENROUTER_API_KEY }}"
+  SUPERMEMORY_API_KEY: "{{ secrets.SUPERMEMORY_API_KEY }}"
+  MAILGUN_API_KEY: "{{ secrets.MAILGUN_API_KEY }}"
+  MAILGUN_DOMAIN: "{{ secrets.MAILGUN_DOMAIN }}"
+  
+  # Security
+  JWT_SECRET_KEY: "{{ secrets.JWT_SECRET_KEY }}"
+  
+  # Database (Render PostgreSQL)
+  DATABASE_URL: "{{ database.DATABASE_URL }}"
+  
+  # Redis (Render Redis)
+  REDIS_URL: "{{ redis.REDIS_URL }}"
+  
+  # Application Settings
+  DEBUG: "false"
+  ENVIRONMENT: "production"
+  PORT: "{{ PORT }}"
+  HOST: "0.0.0.0"
+  
+  # CORS Configuration
+  CORS_ORIGINS: "https://your-frontend-domain.onrender.com"
+  
+  # Performance
+  CACHE_TIMEOUT: "600"
+  RATE_LIMIT_PER_MINUTE: "100"
+  
+  # Monitoring
+  ENABLE_MONITORING: "true"
+  LOG_LEVEL: "INFO"
+
+# ===== DOCKER CONFIGURATION =====
+docker:
+  backend:
+    image: python:3.11-slim
+    working_dir: /app
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+    volumes:
+      - ./backend:/app
+    command: gunicorn --bind 0.0.0.0:5000 src.main:app
+    
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+    command: npm run build && npm run preview
+    
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+
+# ===== HEALTH CHECKS =====
+health_checks:
+  backend:
+    path: /api/health
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    
+  frontend:
+    path: /
+    interval: 30s
+    timeout: 10s
+    retries: 3
+
+# ===== SCALING CONFIGURATION =====
+scaling:
+  backend:
+    min_instances: 1
+    max_instances: 3
+    cpu_threshold: 70
+    memory_threshold: 80
+    
+  frontend:
+    cdn_enabled: true
+    cache_duration: 3600
+
+# ===== BACKUP CONFIGURATION =====
+backup:
+  database:
+    frequency: daily
+    retention: 30_days
+    encryption: true
+    
+  files:
+    frequency: weekly
+    retention: 12_weeks
+    
+# ===== MONITORING CONFIGURATION =====
+monitoring:
+  uptime_checks:
+    - url: https://your-backend.onrender.com/api/health
+      interval: 5m
+    - url: https://your-frontend.onrender.com
+      interval: 5m
+      
+  alerts:
+    - type: email
+      threshold: 99%
+      recipients: ["admin@yourdomain.com"]
+    - type: slack
+      webhook: "{{ secrets.SLACK_WEBHOOK }}"
+
+# ===== SSL/TLS CONFIGURATION =====
+ssl:
+  enabled: true
+  force_https: true
+  hsts_enabled: true
+  certificate_auto_renewal: true
+
+# ===== CUSTOM DOMAIN CONFIGURATION =====
+custom_domain:
+  backend: api.yourdomain.com
+  frontend: app.yourdomain.com
+  dns_provider: namecheap
+  
+# ===== PERFORMANCE OPTIMIZATION =====
+performance:
+  compression: true
+  minification: true
+  caching:
+    static_assets: 1y
+    api_responses: 5m
+  cdn:
+    enabled: true
+    regions: ["us", "eu", "asia"]
+
