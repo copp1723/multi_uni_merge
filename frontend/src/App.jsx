@@ -21,18 +21,48 @@ const [models, setModels] = useState([]);
   useEffect(() => {
     loadAgents();
   }, []);
-  useEffect(() => {
-    if (selectedAgent) {
-      fetch(`${API_BASE_URL}/api/agents/${selectedAgent.id}/config`)
-        .then(res => res.json())
-        .then(data => {
-          setModels(data.data.available_models || []);
-          setSelectedModel(data.data.current_model);
-        })
-        .catch(() => console.error("Failed to load model config"));
-    }
-  }, [selectedAgent]);
+// Add loading state
+const [isLoadingModels, setIsLoadingModels] = useState(false);
 
+useEffect(() => {
+  let cancelled = false;
+
+  if (selectedAgent) {
+    setIsLoadingModels(true);
+    fetch(`${API_BASE_URL}/api/agents/${selectedAgent.id}/config`)
+      .then(res => res.json())
+      .then(data => {
+        if (!cancelled) {
+          setModels(data.data?.available_models || []);
+          setSelectedModel(data.data?.current_model || 'GPT-4o');
+          setIsLoadingModels(false);
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          console.error("Failed to load model config:", err);
+          addNotification('Failed to load model configuration', 'error');
+          setModels([]);
+          setIsLoadingModels(false);
+        }
+      });
+  }
+
+  return () => {
+    cancelled = true;
+  };
+}, [selectedAgent]);
+
+// Update the dropdown button to show loading
+<button
+  onClick={() => setShowModelDropdown(!showModelDropdown)}
+  disabled={isLoadingModels}
+  className="flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-200 rounded-lg text-sm hover:border-blue-500 transition-colors"
+>
+  <MessageSquare className="w-3.5 h-3.5" />
+  <span>{isLoadingModels ? 'Loading...' : selectedModel}</span>
+  <ChevronDown className="w-3 h-3" />
+</button>
 
   const loadAgents = async () => {
 
