@@ -18,7 +18,7 @@ ls -la
 
 # Check if critical files exist
 echo "🔍 Checking Critical Files:"
-critical_files=("app.py" "requirements.txt" "backend/main.py" "backend/__init__.py")
+critical_files=("app.py" "requirements.txt" "backend/main.py" "backend/__init__.py" "test_runtime.py")
 for file in "${critical_files[@]}"; do
     if [ -f "$file" ]; then
         echo "✅ $file exists"
@@ -102,8 +102,24 @@ for var in "${env_vars[@]}"; do
     fi
 done
 
-# Test basic Flask app creation
-echo "🧪 Testing Flask App Creation:"
+# Run comprehensive runtime tests
+echo "🧪 Running Comprehensive Runtime Tests:"
+if [ -f "test_runtime.py" ]; then
+    echo "Running test_runtime.py..."
+    python test_runtime.py
+    runtime_exit_code=$?
+    if [ $runtime_exit_code -eq 0 ]; then
+        echo "✅ Runtime tests passed!"
+    else
+        echo "❌ Runtime tests failed with exit code $runtime_exit_code"
+        echo "⚠️ Deployment may have issues. Check logs above."
+    fi
+else
+    echo "⚠️ test_runtime.py not found, skipping runtime tests"
+fi
+
+# Test basic Flask app creation (simplified)
+echo "🧪 Testing Flask App Creation (Basic):"
 if python -c "
 import sys
 import os
@@ -137,6 +153,27 @@ echo "💾 System Resources:"
 echo "Disk usage: $(df -h . | tail -1 | awk '{print $5}') used"
 echo "Available memory: $(free -h 2>/dev/null | grep '^Mem:' | awk '{print $7}' || echo 'N/A')"
 
+# Test gunicorn can find the app
+echo "🦄 Testing Gunicorn Configuration:"
+if python -c "
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath('.')))
+try:
+    import app
+    print('✅ app.py module imported successfully')
+    print(f'App object type: {type(app.app)}')
+    print('✅ Gunicorn should be able to find app:app')
+except Exception as e:
+    print(f'❌ Gunicorn test failed: {e}')
+    import traceback
+    traceback.print_exc()
+"; then
+    echo "✅ Gunicorn configuration test passed"
+else
+    echo "❌ Gunicorn configuration test failed"
+fi
+
 # Final summary
 echo "🎯 Setup Script Complete!"
 echo "If any tests failed above, check the Render build logs for more details."
@@ -144,5 +181,15 @@ echo "Common issues:"
 echo "  - Missing environment variables (check Render dashboard)"
 echo "  - Import errors (check Python path and package structure)"
 echo "  - Memory/resource constraints (upgrade Render plan if needed)"
+echo "  - Service initialization failures (check individual service configs)"
 echo ""
 echo "🚀 Ready for deployment!"
+
+# Return appropriate exit code
+if [ -n "$runtime_exit_code" ] && [ $runtime_exit_code -ne 0 ]; then
+    echo "⚠️ Exiting with code 1 due to runtime test failures"
+    exit 1
+else
+    echo "✅ All setup checks passed!"
+    exit 0
+fi
