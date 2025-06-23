@@ -551,7 +551,19 @@ const useWebSocket = (onMessage, onHistory, onStatus) => {
   const socketRef = useRef(null);
 
   useEffect(() => {
-    const base = import.meta.env.VITE_WS_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    // Dynamically determine WebSocket URL
+    const base = (() => {
+      if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+      if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+      
+      // In production, use the same origin as the frontend
+      if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        return window.location.origin;
+      }
+      
+      // In development, use localhost:5000
+      return 'http://localhost:5000';
+    })();
     socketRef.current = io(base + '/swarm', {
       transports: ['websocket', 'polling']
     });
