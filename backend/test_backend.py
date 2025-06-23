@@ -7,6 +7,7 @@ Tests all backend services and components
 import os
 import sys
 import asyncio
+import pytest
 import logging
 from pathlib import Path
 
@@ -76,6 +77,7 @@ def test_error_handling():
         logger.error(f"❌ Error handling test failed: {e}")
         return False
 
+@pytest.mark.asyncio
 async def test_async_utilities():
     """Test async utilities"""
     logger.info("🔍 Testing async utilities...")
@@ -143,6 +145,7 @@ def test_service_registry():
         logger.error(f"❌ Service registry test failed: {e}")
         return False
 
+@pytest.mark.asyncio
 async def test_mcp_filesystem():
     """Test MCP filesystem service"""
     logger.info("🔍 Testing MCP filesystem service...")
@@ -218,6 +221,44 @@ def test_swarm_orchestrator():
         logger.error(f"❌ Swarm orchestrator test failed: {e}")
         return False
 
+def test_database_models():
+    """Test SQLAlchemy models"""
+    logger.info("🔍 Testing database models...")
+
+    try:
+        from flask import Flask
+        from models import db, User, AgentTask
+
+        app = Flask(__name__)
+        app.config.update({
+            'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+            'SQLALCHEMY_TRACK_MODIFICATIONS': False,
+        })
+
+        db.init_app(app)
+
+        with app.app_context():
+            db.create_all()
+
+            user = User(email='test@example.com', name='Test')
+            db.session.add(user)
+            db.session.commit()
+
+            task = AgentTask(user_id=user.id, agent_id='agent', input='hi', output='ok')
+            db.session.add(task)
+            db.session.commit()
+
+            assert User.query.count() == 1
+            assert AgentTask.query.count() == 1
+
+        logger.info("✅ Database models tests passed")
+        return True
+
+    except Exception as e:
+        logger.error(f"❌ Database models test failed: {e}")
+        return False
+
+@pytest.mark.asyncio
 async def test_application_creation():
     """Test main application creation"""
     logger.info("🔍 Testing application creation...")
@@ -258,6 +299,7 @@ async def run_all_tests():
     test_results.append(("Error Handling", test_error_handling()))
     test_results.append(("Service Registry", test_service_registry()))
     test_results.append(("Swarm Orchestrator", test_swarm_orchestrator()))
+    test_results.append(("Database Models", test_database_models()))
     
     # Asynchronous tests
     test_results.append(("Async Utilities", await test_async_utilities()))

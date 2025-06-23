@@ -3,6 +3,7 @@
 Enhanced with async patterns, comprehensive error handling, and all services integrated
 """
 
+import argparse
 import asyncio
 import os
 import sys
@@ -12,6 +13,7 @@ from typing import Dict, Any
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_socketio import SocketIO
+from flask_migrate import Migrate, upgrade
 
 # Add project paths
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -32,6 +34,7 @@ from .services.websocket_service import initialize_websocket_service, SwarmNames
 
 # Import orchestrator - using relative import
 from .swarm_orchestrator import SwarmOrchestrator
+from .models import db
 
 import logging
 from datetime import datetime, timezone
@@ -42,6 +45,9 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Global Flask-Migrate instance
+migrate = Migrate()
 
 class SwarmApplication:
     """Main application class with modern async patterns"""
@@ -63,7 +69,7 @@ class SwarmApplication:
             'SECRET_KEY': os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production'),
             
             # Database configuration
-            'DATABASE_URL': os.getenv('DATABASE_URL'),
+            'DATABASE_URL': os.getenv('DATABASE_URL', 'sqlite:///swarm.db'),
             
             # OpenRouter configuration
             'OPENROUTER_API_KEY': os.getenv('OPENROUTER_API_KEY'),
@@ -93,9 +99,15 @@ class SwarmApplication:
         # Configure app
         app.config.update({
             'SECRET_KEY': self.config['SECRET_KEY'],
-            'DEBUG': self.config['DEBUG']
+            'DEBUG': self.config['DEBUG'],
+            'SQLALCHEMY_DATABASE_URI': self.config['DATABASE_URL'],
+            'SQLALCHEMY_TRACK_MODIFICATIONS': False
         })
         
+        # Initialize extensions
+        db.init_app(app)
+        migrate.init_app(app, db)
+
         # Initialize SocketIO
         socketio = SocketIO(
             app, 
@@ -412,6 +424,21 @@ def create_app():
 
 def main():
     """Main entry point"""
+    parser = argparse.ArgumentParser(description="Swarm backend entrypoint")
+    parser.add_argument(
+        "--migrate",
+        action="store_true",
+        help="Run database migrations and exit",
+    )
+    args = parser.parse_args()
+
+    if args.migrate:
+        app = swarm_app.create_app()
+        with app.app_context():
+            upgrade()
+        print("✅ Database migrations applied")
+        return
+
     swarm_app.run()
 
 if __name__ == '__main__':
