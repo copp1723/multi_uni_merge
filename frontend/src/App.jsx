@@ -30,6 +30,8 @@ function App() {
   const [selectedModel, setSelectedModel] = useState('GPT-4o');
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [modelOptions, setModelOptions] = useState([]);
+  const [transformText, setTransformText] = useState('');
+  const [isTransforming, setIsTransforming] = useState(false);
 
   // Load agents on mount
   useEffect(() => {
@@ -116,6 +118,54 @@ function App() {
       'Researcher': CheckCircle
     };
     return iconMap[agentName] || MessageSquare;
+  };
+
+  const handleTransform = async () => {
+    if (!transformText.trim()) {
+      addNotification('Please enter text to transform', 'error');
+      return;
+    }
+
+    if (!selectedAgent) {
+      addNotification('Please select an agent first', 'error');
+      return;
+    }
+
+    setIsTransforming(true);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/transform`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: transformText,
+          agent_id: selectedAgent.id
+        })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.data) {
+        // Copy transformed text to clipboard
+        navigator.clipboard.writeText(data.data.transformed_text);
+        addNotification('Transformed text copied to clipboard!', 'success');
+        
+        // Clear the transform input
+        setTransformText('');
+        
+        // Optionally, show the transformed text in the chat area
+        setMessage(data.data.transformed_text);
+      } else {
+        throw new Error(data.error?.message || 'Transform failed');
+      }
+    } catch (error) {
+      console.error('Transform error:', error);
+      addNotification(error.message || 'Failed to transform text', 'error');
+    } finally {
+      setIsTransforming(false);
+    }
   };
 
 
@@ -236,12 +286,29 @@ function App() {
         <div className="p-4 bg-gray-100 border-b border-gray-200 flex gap-3 items-center">
           <input
             type="text"
+            value={transformText}
+            onChange={(e) => setTransformText(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && !isTransforming) {
+                e.preventDefault();
+                handleTransform();
+              }
+            }}
             placeholder="Paste text here for quick transformation..."
             className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 transition-colors"
+            disabled={isTransforming}
           />
-          <button className="px-5 py-2.5 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors flex items-center gap-2">
-            <Settings className="w-4 h-4" />
-            Transform
+          <button 
+            onClick={handleTransform}
+            disabled={isTransforming || !selectedAgent}
+            className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+              isTransforming || !selectedAgent
+                ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                : 'bg-blue-500 text-white hover:bg-blue-600'
+            }`}
+          >
+            <Settings className={`w-4 h-4 ${isTransforming ? 'animate-spin' : ''}`} />
+            {isTransforming ? 'Transforming...' : 'Transform'}
           </button>
         </div>
 
