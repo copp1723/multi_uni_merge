@@ -14,6 +14,12 @@ from typing import Any, Dict, List, Optional
 from flask import current_app, request
 from flask_socketio import Namespace, emit, join_room, leave_room
 
+# Import BaseService for proper service registration
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.service_utils import BaseService, ServiceHealth, ServiceStatus
+
 logger = logging.getLogger(__name__)
 
 class AgentStatus(Enum):
@@ -42,6 +48,7 @@ class WebSocketService(BaseService):
     """Enhanced WebSocket service with proper MCP filesystem integration"""
     
     def __init__(self, app, mcp_filesystem_service=None):
+        super().__init__("websocket")  # Initialize BaseService with service name
         self.app = app
         self.mcp_filesystem_service = mcp_filesystem_service
         self.connected_clients = {}
@@ -61,6 +68,25 @@ class WebSocketService(BaseService):
                 logger.error(f"❌ MCP Filesystem service error: {e}")
         else:
             logger.warning("⚠️ MCP Filesystem service not provided")
+    
+    async def _health_check(self) -> ServiceHealth:
+        """Implement service-specific health check"""
+        try:
+            return ServiceHealth(
+                service_name="websocket",
+                status=ServiceStatus.HEALTHY,
+                details={
+                    "connected_clients": len(self.connected_clients),
+                    "active_rooms": len(self.active_rooms),
+                    "mcp_filesystem": "connected" if self.mcp_filesystem_service else "not_connected"
+                }
+            )
+        except Exception as e:
+            return ServiceHealth(
+                service_name="websocket",
+                status=ServiceStatus.UNHEALTHY,
+                details={"error": str(e)}
+            )
     
     def start_streaming_response(self, session_id: str, message: WebSocketMessage, model: str):
         """Start streaming response from agent with proper Flask context"""
