@@ -2,17 +2,19 @@ services:
   - type: web
     name: swarm-multi-agent-system
     env: python
-    buildCommand: "./build.sh"
+    buildCommand: "python3 deploy.py"
     startCommand: "python3 backend/main.py"
     plan: starter
     envVars:
       - key: HOST
         value: "0.0.0.0"
       - key: PORT
-        value: "5000"
+        value: "10000"
       - key: DEBUG
         value: "false"
       - key: PYTHON_VERSION
         value: "3.11"
+      - key: NODE_VERSION
+        value: "18"
     healthCheckPath: "/api/health"
 
