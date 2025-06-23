@@ -15,10 +15,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-# Import BaseService for proper service registration
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.service_utils import BaseService, ServiceHealth, ServiceStatus
+# Import BaseService using relative imports
+from ..utils.service_utils import BaseService, ServiceHealth, ServiceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -77,20 +75,35 @@ class MCPFilesystemService(BaseService):
         try:
             # Check if base path exists and is writable
             if not self.base_path.exists():
-                return ServiceHealth(status=ServiceStatus.UNHEALTHY, message="Service operational", details={"error": "Base path does not exist"}, last_check=datetime.now(timezone.utc).isoformat())
+                return ServiceHealth(
+                    status=ServiceStatus.UNHEALTHY, 
+                    message="Base path does not exist", 
+                    details={"error": "Base path does not exist"}, 
+                    last_check=datetime.now(timezone.utc).isoformat()
+                )
             
             # Test write permissions
             test_file = self.base_path / ".health_check"
             test_file.write_text("health check")
             test_file.unlink()
             
-            return ServiceHealth(status=ServiceStatus.HEALTHY, message="Service operational", details={
+            return ServiceHealth(
+                status=ServiceStatus.HEALTHY, 
+                message="Service operational", 
+                details={
                     "base_path": str(self.base_path),
                     "max_file_size": self.max_file_size,
                     "permissions": "writable"
-                }, last_check=datetime.now(timezone.utc).isoformat())
+                }, 
+                last_check=datetime.now(timezone.utc).isoformat()
+            )
         except Exception as e:
-            return ServiceHealth(status=ServiceStatus.UNHEALTHY, message="Service operational", details={"error": str(e)}, last_check=datetime.now(timezone.utc).isoformat())
+            return ServiceHealth(
+                status=ServiceStatus.UNHEALTHY, 
+                message=f"Filesystem error: {str(e)}", 
+                details={"error": str(e)}, 
+                last_check=datetime.now(timezone.utc).isoformat()
+            )
     
     def _validate_path(self, path: str) -> Path:
         """Validate and resolve path within workspace boundaries"""
@@ -463,4 +476,3 @@ def initialize_mcp_filesystem(
 def get_mcp_filesystem_service() -> Optional[MCPFilesystemService]:
     """Get the global MCP filesystem service instance"""
     return mcp_filesystem_service
-
