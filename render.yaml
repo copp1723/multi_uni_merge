@@ -2,7 +2,7 @@ services:
   - type: web
     name: swarm-multi-agent-system
     env: python
-    buildCommand: "python3 deploy.py"
+    buildCommand: "python3 build_test.py"
     startCommand: "python3 backend/main.py"
     plan: starter
     envVars:
