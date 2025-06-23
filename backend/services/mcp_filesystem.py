@@ -15,6 +15,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+# Import BaseService for proper service registration
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.service_utils import BaseService, ServiceHealth, ServiceStatus
+
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -66,6 +71,38 @@ class MCPFilesystemService(BaseService):
         os.chmod(self.base_path, 0o755)
         
         logger.info(f"✅ MCP Filesystem initialized with base path: {self.base_path}")
+    
+    async def _health_check(self) -> ServiceHealth:
+        """Implement service-specific health check"""
+        try:
+            # Check if base path exists and is writable
+            if not self.base_path.exists():
+                return ServiceHealth(
+                    service_name="mcp_filesystem",
+                    status=ServiceStatus.UNHEALTHY,
+                    details={"error": "Base path does not exist"}
+                )
+            
+            # Test write permissions
+            test_file = self.base_path / ".health_check"
+            test_file.write_text("health check")
+            test_file.unlink()
+            
+            return ServiceHealth(
+                service_name="mcp_filesystem",
+                status=ServiceStatus.HEALTHY,
+                details={
+                    "base_path": str(self.base_path),
+                    "max_file_size": self.max_file_size,
+                    "permissions": "writable"
+                }
+            )
+        except Exception as e:
+            return ServiceHealth(
+                service_name="mcp_filesystem",
+                status=ServiceStatus.UNHEALTHY,
+                details={"error": str(e)}
+            )
     
     def _validate_path(self, path: str) -> Path:
         """Validate and resolve path within workspace boundaries"""
