@@ -83,7 +83,9 @@ class SwarmApplication:
     
     def create_app(self) -> Flask:
         """Create and configure Flask application"""
-        app = Flask(__name__)
+        # Serve static files from frontend dist directory
+        frontend_dist_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'dist')
+        app = Flask(__name__, static_folder=frontend_dist_path, static_url_path='')
         
         # Configure CORS
         CORS(app, origins="*", allow_headers=["Content-Type", "Authorization"])
@@ -145,29 +147,34 @@ class SwarmApplication:
         
         @self.app.route('/', methods=['GET'])
         def root():
-            """Root endpoint with system information"""
-            return jsonify(format_api_response({
-                'name': '🤖 Swarm Multi-Agent System',
-                'version': '3.0.0',
-                'status': 'operational',
-                'endpoints': {
-                    'health': '/api/health',
-                    'system': '/api/system',
-                    'agents': '/api/agents',
-                    'conversations': '/api/conversations',
-                    'websocket': '/socket.io'
-                },
-                'features': [
-                    '6 Specialized AI Agents (including Communication Agent)',
-                    'Real-time Collaboration via WebSocket',
-                    'Cross-Agent Memory Sharing',
-                    'OpenRouter AI Integration',
-                    'SuperMemory Knowledge Base',
-                    'MCP Filesystem Access',
-                    'Email Integration',
-                    'Production Monitoring'
-                ]
-            }))
+            """Serve the frontend application"""
+            try:
+                return self.app.send_static_file('index.html')
+            except Exception:
+                # Fallback to API info if frontend not available
+                return jsonify(format_api_response({
+                    'name': '🤖 Swarm Multi-Agent System',
+                    'version': '3.0.0',
+                    'status': 'operational',
+                    'note': 'Frontend not built - showing API info',
+                    'endpoints': {
+                        'health': '/api/health',
+                        'system': '/api/system',
+                        'agents': '/api/agents',
+                        'conversations': '/api/conversations',
+                        'websocket': '/socket.io'
+                    },
+                    'features': [
+                        '6 Specialized AI Agents (including Communication Agent)',
+                        'Real-time Collaboration via WebSocket',
+                        'Cross-Agent Memory Sharing',
+                        'OpenRouter AI Integration',
+                        'SuperMemory Knowledge Base',
+                        'MCP Filesystem Access',
+                        'Email Integration',
+                        'Production Monitoring'
+                    ]
+                }))
         
         @self.app.route('/api/health', methods=['GET'])
         @handle_errors("Health check failed")
