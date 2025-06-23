@@ -12,7 +12,7 @@ services:
     buildCommand: |
       echo "🔧 Starting build process..."
       pip install --upgrade pip
-      pip install -r requirements.txt
+      pip install -r config/requirements.txt
       echo "📦 Verifying critical packages..."
       pip list | grep -E "(flask|gunicorn|psycopg2|requests|pydantic)"
       echo "✅ Build completed successfully!"
