@@ -11,9 +11,15 @@ services:
     # Build command with enhanced dependency management
     buildCommand: |
       echo "🔧 Starting build process..."
+      echo "📦 Installing Python dependencies..."
       pip install --upgrade pip
       pip install -r config/requirements.txt
-      echo "📦 Verifying critical packages..."
+      echo "🔨 Building React frontend..."
+      cd frontend
+      npm install
+      npm run build
+      cd ..
+      echo "✅ Verifying critical packages..."
       pip list | grep -E "(flask|gunicorn|psycopg2|requests|pydantic)"
       echo "✅ Build completed successfully!"
     # Start command with enhanced logging and timeout
