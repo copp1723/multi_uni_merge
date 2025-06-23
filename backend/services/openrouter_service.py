@@ -10,6 +10,12 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Generator, Iterator
 import requests
 
+# Import BaseService for proper service registration
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.service_utils import BaseService, ServiceHealth, ServiceStatus
+
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -48,10 +54,11 @@ class ChatResponse:
     model: str
     usage: Optional[Dict[str, Any]] = None
 
-class OpenRouterService:
+class OpenRouterService(BaseService):
     """Service for interacting with OpenRouter API with streaming support"""
     
     def __init__(self, api_key: str):
+        super().__init__("openrouter")  # Initialize BaseService with service name
         self.api_key = api_key
         self.base_url = "https://openrouter.ai/api/v1"
         self.headers = {
@@ -63,6 +70,42 @@ class OpenRouterService:
         self._models_cache = None
         self._cache_timestamp = 0
         self.cache_duration = 300  # 5 minutes
+    
+    async def _health_check(self) -> ServiceHealth:
+        """Implement service-specific health check"""
+        try:
+            # Test API connection by fetching models
+            response = requests.get(
+                f"{self.base_url}/models",
+                headers=self.headers,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                models_data = response.json()
+                model_count = len(models_data.get("data", []))
+                
+                return ServiceHealth(
+                    service_name="openrouter",
+                    status=ServiceStatus.HEALTHY,
+                    details={
+                        "api_status": "connected",
+                        "available_models": model_count,
+                        "base_url": self.base_url
+                    }
+                )
+            else:
+                return ServiceHealth(
+                    service_name="openrouter",
+                    status=ServiceStatus.UNHEALTHY,
+                    details={"error": f"API returned status {response.status_code}"}
+                )
+        except Exception as e:
+            return ServiceHealth(
+                service_name="openrouter",
+                status=ServiceStatus.UNHEALTHY,
+                details={"error": str(e)}
+            )
     
     def get_available_models(self) -> List[ModelInfo]:
         """Get list of available models with caching"""
