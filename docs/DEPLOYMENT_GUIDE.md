@@ -114,7 +114,7 @@ The `config/docker-compose.yml` includes:
 ### 1. Backend Deployment
 
 ```bash
-cd current/backend
+cd backend
 
 # Install dependencies
 pip install -r ../config/requirements.txt
@@ -129,7 +129,7 @@ python main.py
 ### 2. Frontend Deployment
 
 ```bash
-cd current/frontend
+cd frontend
 
 # Install dependencies
 npm install
@@ -150,10 +150,10 @@ Use PM2 for production process management:
 npm install -g pm2
 
 # Start backend
-pm2 start current/backend/main.py --name swarm-backend --interpreter python3
+pm2 start backend/main.py --name swarm-backend --interpreter python3
 
 # Start frontend (if serving with Node.js)
-pm2 start "npm run preview" --name swarm-frontend --cwd current/frontend
+pm2 start "npm run preview" --name swarm-frontend --cwd frontend
 
 # Save PM2 configuration
 pm2 save
@@ -166,21 +166,21 @@ pm2 startup
 
 1. **Backend Deployment**:
    - Connect your GitHub repository
-   - Set build command: `pip install -r current/config/requirements.txt`
-   - Set start command: `cd current/backend && python main.py`
+   - Set build command: `pip install -r config/requirements.txt`
+   - Set start command: `cd backend && python main.py`
    - Add environment variables from `.env`
 
 2. **Frontend Deployment**:
    - Create new static site
-   - Set build command: `cd current/frontend && npm install && npm run build`
-   - Set publish directory: `current/frontend/dist`
+   - Set build command: `cd frontend && npm install && npm run build`
+   - Set publish directory: `frontend/dist`
 
 ### Heroku Deployment
 
 1. **Prepare Heroku files**:
 ```bash
 # Create Procfile in root
-echo "web: cd current/backend && python main.py" > Procfile
+echo "web: cd backend && python main.py" > Procfile
 
 # Create runtime.txt
 echo "python-3.11.0" > runtime.txt
@@ -294,8 +294,8 @@ curl http://localhost:5000/api/system/status | jq '.data.services'
 git pull origin main
 
 # Update dependencies
-cd current/backend && pip install -r ../config/requirements.txt
-cd current/frontend && npm install
+cd backend && pip install -r ../config/requirements.txt
+cd frontend && npm install
 
 # Restart services
 docker-compose -f config/docker-compose.yml restart
@@ -308,7 +308,7 @@ docker-compose -f config/docker-compose.yml restart
 pg_dump $DATABASE_URL > backup.sql
 
 # Run any new migrations
-python current/backend/main.py --migrate
+python backend/main.py --migrate
 ```
 
 ### Monitoring and Alerts
