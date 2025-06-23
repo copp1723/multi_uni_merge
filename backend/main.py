@@ -82,6 +82,7 @@ class SwarmApplication:
             'MAILGUN_API_KEY': os.getenv('MAILGUN_API_KEY'),
             'MAILGUN_DOMAIN': os.getenv('MAILGUN_DOMAIN'),
             'MAILGUN_WEBHOOK_SIGNING_KEY': os.getenv('MAILGUN_WEBHOOK_SIGNING_KEY'),
+            'NOTIFICATION_EMAIL': os.getenv('NOTIFICATION_EMAIL'),
             
             # MCP Filesystem configuration
             'MCP_WORKSPACE_PATH': os.getenv('MCP_WORKSPACE_PATH', '/tmp/swarm_workspace'),
@@ -296,8 +297,15 @@ class SwarmApplication:
             'SUPERMEMORY_API_KEY',
             'SUPERMEMORY_BASE_URL'
         ]
-        
-        return [config for config in required_configs if not self.config.get(config)]
+
+        optional_configs = ['MAILGUN_API_KEY', 'MAILGUN_DOMAIN']
+
+        missing_required = [c for c in required_configs if not self.config.get(c)]
+        missing_optional = [c for c in optional_configs if not self.config.get(c)]
+        if missing_optional:
+            logger.warning(f"⚠️ Optional configs missing: {missing_optional}")
+
+        return missing_required
     
     async def initialize_services(self):
         """Initialize all services asynchronously"""
@@ -348,18 +356,20 @@ class SwarmApplication:
             else:
                 logger.warning("⚠️ Mailgun not configured")
             
+            # Initialize Swarm Orchestrator
+            self.orchestrator = SwarmOrchestrator()
+            logger.info("✅ Swarm Orchestrator initialized")
+
             # Initialize WebSocket service
-            websocket_service = initialize_websocket_service(self.app, mcp_service)
+            websocket_service = initialize_websocket_service(
+                self.app, mcp_service, self.orchestrator
+            )
             service_registry.register(websocket_service)
-            
+
             # Register WebSocket namespace
             swarm_namespace = SwarmNamespace('/swarm', websocket_service)
             self.socketio.on_namespace(swarm_namespace)
             logger.info("✅ WebSocket service initialized")
-            
-            # Initialize Swarm Orchestrator
-            self.orchestrator = SwarmOrchestrator()
-            logger.info("✅ Swarm Orchestrator initialized")
             
             self._services_initialized = True
             logger.info("🎉 All services initialized successfully!")

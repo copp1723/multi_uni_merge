@@ -27,6 +27,7 @@ SUPERMEMORY_BASE_URL=https://api.supermemory.ai
 MAILGUN_API_KEY=your-mailgun-api-key
 MAILGUN_DOMAIN=your-mailgun-domain.com
 MAILGUN_WEBHOOK_SIGNING_KEY=your-mailgun-webhook-signing-key
+NOTIFICATION_EMAIL=your-email@example.com
 ```
 
 ### File System (Optional - has defaults)

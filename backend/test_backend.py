@@ -287,6 +287,23 @@ async def test_application_creation():
         logger.error(f"❌ Application creation test failed: {e}")
         return False
 
+def test_optional_mailgun_config():
+    """Ensure missing Mailgun config does not count as required"""
+    try:
+        import sqlalchemy  # noqa: F401
+    except ImportError:
+        logger.warning("sqlalchemy not installed; skipping test")
+        return True
+
+    from backend.main import SwarmApplication
+
+    os.environ.pop('MAILGUN_API_KEY', None)
+    os.environ.pop('MAILGUN_DOMAIN', None)
+
+    app_instance = SwarmApplication()
+    missing = app_instance._get_missing_configs()
+    return 'MAILGUN_API_KEY' not in missing and 'MAILGUN_DOMAIN' not in missing
+
 async def run_all_tests():
     """Run all backend tests"""
     logger.info("🚀 Starting Backend Service Tests")
@@ -305,6 +322,7 @@ async def run_all_tests():
     test_results.append(("Async Utilities", await test_async_utilities()))
     test_results.append(("MCP Filesystem", await test_mcp_filesystem()))
     test_results.append(("Application Creation", await test_application_creation()))
+    test_results.append(("Optional Mailgun Config", test_optional_mailgun_config()))
     
     # Print results
     logger.info("\n" + "=" * 50)

@@ -44,6 +44,7 @@ SUPERMEMORY_BASE_URL=https://your-supermemory-instance.com
 MAILGUN_API_KEY=your-mailgun-api-key
 MAILGUN_DOMAIN=your-domain.com
 MAILGUN_WEBHOOK_SIGNING_KEY=your-webhook-signing-key
+NOTIFICATION_EMAIL=your-email@example.com
 
 # Server Configuration
 HOST=0.0.0.0
