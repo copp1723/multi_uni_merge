@@ -6,8 +6,9 @@ Enhanced with async patterns, comprehensive error handling, and all services int
 import asyncio
 import os
 import sys
-from contextlib import asynccontextmanager
 from typing import Dict, Any
+
+from flask_sqlalchemy import SQLAlchemy
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -23,17 +24,11 @@ from .utils.async_utils import task_manager
 from .utils.service_utils import service_registry, format_api_response
 
 # Import services - using relative imports
-from .services.postgresql_service import initialize_postgresql, get_postgresql_service
-from .services.openrouter_service import initialize_openrouter, get_openrouter_service
-from .services.supermemory_service import (
-    initialize_supermemory,
-    get_supermemory_service,
-)
-from .services.mcp_filesystem import (
-    initialize_mcp_filesystem,
-    get_mcp_filesystem_service,
-)
-from .services.mailgun_service import initialize_mailgun, get_mailgun_service
+from .services.postgresql_service import initialize_postgresql
+from .services.openrouter_service import initialize_openrouter
+from .services.supermemory_service import initialize_supermemory
+from .services.mcp_filesystem import initialize_mcp_filesystem
+from .services.mailgun_service import initialize_mailgun
 from .services.websocket_service import initialize_websocket_service, SwarmNamespace
 from .services.agent_service import initialize_agent_service, set_mcp_filesystem_service
 
@@ -49,6 +44,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Initialize global SQLAlchemy instance
+db = SQLAlchemy()
+
 
 class SwarmApplication:
     """Main application class with modern async patterns"""
@@ -57,6 +55,7 @@ class SwarmApplication:
         self.app: Flask = None
         self.socketio: SocketIO = None
         self.orchestrator: SwarmOrchestrator = None
+        self.db = db
         self.config = self._load_config()
         self._services_initialized = False
 
@@ -100,8 +99,16 @@ class SwarmApplication:
 
         # Configure app
         app.config.update(
-            {"SECRET_KEY": self.config["SECRET_KEY"], "DEBUG": self.config["DEBUG"]}
+            {
+                "SECRET_KEY": self.config["SECRET_KEY"],
+                "DEBUG": self.config["DEBUG"],
+                "SQLALCHEMY_DATABASE_URI": self.config.get("DATABASE_URL"),
+                "SQLALCHEMY_TRACK_MODIFICATIONS": False,
+            }
         )
+
+        # Initialize SQLAlchemy
+        db.init_app(app)
 
         # Initialize SocketIO
         socketio = SocketIO(
@@ -229,6 +236,19 @@ class SwarmApplication:
                     ),
                     500,
                 )
+
+        @self.app.route("/api/models", methods=["GET"])
+        @handle_errors("Failed to get models")
+        def get_models():
+            """Retrieve available AI models from OpenRouter"""
+            from .services.openrouter_service import get_openrouter_service
+
+            openrouter = get_openrouter_service()
+            if not openrouter:
+                raise SwarmError("OpenRouter service not initialized")
+
+            models = [model.__dict__ for model in openrouter.get_available_models()]
+            return jsonify(format_api_response(models))
 
         @self.app.route("/api/system/status", methods=["GET"])
         @handle_errors("System status check failed")

@@ -27,25 +27,25 @@ def test_imports():
 
     try:
         # Test utility imports
-        from utils.error_handler import SwarmError, ErrorCode, handle_errors
-        from utils.async_utils import AsyncTaskManager, async_retry
-        from utils.service_utils import BaseService, ServiceRegistry, service_registry
+        from utils.error_handler import SwarmError, ErrorCode, handle_errors  # noqa: F401
+        from utils.async_utils import AsyncTaskManager, async_retry  # noqa: F401
+        from utils.service_utils import BaseService, ServiceRegistry, service_registry  # noqa: F401
 
         logger.info("✅ Utility modules imported successfully")
 
         # Test service imports
-        from services.postgresql_service import PostgreSQLService
-        from services.openrouter_service import OpenRouterService
-        from services.supermemory_service import SupermemoryService
-        from services.mcp_filesystem import MCPFilesystemService
-        from services.mailgun_service import MailgunService
-        from services.websocket_service import WebSocketService
+        from services.postgresql_service import PostgreSQLService  # noqa: F401
+        from services.openrouter_service import OpenRouterService  # noqa: F401
+        from services.supermemory_service import SupermemoryService  # noqa: F401
+        from services.mcp_filesystem import MCPFilesystemService  # noqa: F401
+        from services.mailgun_service import MailgunService  # noqa: F401
+        from services.websocket_service import WebSocketService  # noqa: F401
 
         logger.info("✅ Service modules imported successfully")
 
         # Test main application
-        from main import SwarmApplication
-        from swarm_orchestrator import SwarmOrchestrator
+        from main import SwarmApplication  # noqa: F401
+        from swarm_orchestrator import SwarmOrchestrator  # noqa: F401
 
         logger.info("✅ Main application modules imported successfully")
 
@@ -276,6 +276,55 @@ def test_agent_service():
         return False
 
 
+def test_sqlalchemy_setup():
+    """Test SQLAlchemy initialization"""
+    logger.info("🔍 Testing SQLAlchemy setup...")
+
+    try:
+        from main import SwarmApplication, db
+
+        app_instance = SwarmApplication()
+        flask_app = app_instance.create_app()
+
+        assert "sqlalchemy" in flask_app.extensions
+        assert app_instance.db is db
+
+        logger.info("✅ SQLAlchemy setup tests passed")
+        return True
+
+    except Exception as e:
+        logger.error(f"❌ SQLAlchemy setup test failed: {e}")
+        return False
+
+
+async def test_models_endpoint():
+    """Test /api/models endpoint"""
+    logger.info("🔍 Testing /api/models endpoint...")
+
+    try:
+        from main import SwarmApplication
+        from services.openrouter_service import get_openrouter_service
+
+        app_instance = SwarmApplication()
+        flask_app = app_instance.create_app()
+        await app_instance.initialize_services()
+
+        openrouter = get_openrouter_service()
+        if openrouter:
+            openrouter.get_available_models = lambda: []
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/models")
+            assert response.status_code == 200
+
+        logger.info("✅ /api/models endpoint tests passed")
+        return True
+
+    except Exception as e:
+        logger.error(f"❌ /api/models endpoint test failed: {e}")
+        return False
+
+
 async def test_application_creation():
     """Test main application creation"""
     logger.info("🔍 Testing application creation...")
@@ -323,6 +372,8 @@ async def run_all_tests():
     test_results.append(("Async Utilities", await test_async_utilities()))
     test_results.append(("MCP Filesystem", await test_mcp_filesystem()))
     test_results.append(("Application Creation", await test_application_creation()))
+    test_results.append(("SQLAlchemy Setup", test_sqlalchemy_setup()))
+    test_results.append(("Models Endpoint", await test_models_endpoint()))
 
     # Print results
     logger.info("\n" + "=" * 50)
