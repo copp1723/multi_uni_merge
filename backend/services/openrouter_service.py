@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 """
 OpenRouter service for AI model interactions with streaming support
 Robust implementation with proper error handling and model management
@@ -8,14 +7,12 @@ import json
 import logging
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Generator, Iterator
 import requests
 
-# Import BaseService for proper service registration
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.service_utils import BaseService, ServiceHealth, ServiceStatus
+# Import BaseService using relative imports
+from ..utils.service_utils import BaseService, ServiceHealth, ServiceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -86,24 +83,33 @@ class OpenRouterService(BaseService):
                 models_data = response.json()
                 model_count = len(models_data.get("data", []))
                 
-                return ServiceHealth(status=ServiceStatus.HEALTHY, message="Service operational", details={
+                return ServiceHealth(
+                    status=ServiceStatus.HEALTHY, 
+                    message="Service operational", 
+                    details={
                         "api_status": "connected",
                         "available_models": model_count,
                         "base_url": self.base_url
-                    }, last_check=datetime.now(timezone.utc).isoformat())
+                    }, 
+                    last_check=datetime.now(timezone.utc).isoformat()
+                )
             else:
                 return ServiceHealth(
-                    
                     status=ServiceStatus.UNHEALTHY,
-                    details={"error": f"API returned status {response.status_code}"}
+                    message=f"API returned status {response.status_code}",
+                    details={"error": f"API returned status {response.status_code}"},
+                    last_check=datetime.now(timezone.utc).isoformat()
                 )
         except Exception as e:
-            return ServiceHealth(status=ServiceStatus.UNHEALTHY, message="Service operational", details={"error": str(e)}, last_check=datetime.now(timezone.utc).isoformat())
+            return ServiceHealth(
+                status=ServiceStatus.UNHEALTHY, 
+                message=f"Connection failed: {str(e)}", 
+                details={"error": str(e)}, 
+                last_check=datetime.now(timezone.utc).isoformat()
+            )
     
     def get_available_models(self) -> List[ModelInfo]:
         """Get list of available models with caching"""
-        import time
-        
         # Check cache
         current_time = time.time()
         if (
@@ -377,4 +383,3 @@ def initialize_openrouter(api_key: str) -> OpenRouterService:
 def get_openrouter_service() -> Optional[OpenRouterService]:
     """Get the global OpenRouter service instance"""
     return openrouter_service
-
