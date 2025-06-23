@@ -18,6 +18,12 @@ from typing import Any, Dict, List, Optional, Union
 
 import requests
 
+# Import BaseService for proper service registration
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.service_utils import BaseService, ServiceHealth, ServiceStatus
+
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -56,7 +62,7 @@ class EmailDeliveryStatus:
     reason: Optional[str] = None
     details: Optional[Dict[str, Any]] = None
 
-class MailgunService:
+class MailgunService(BaseService):
     """Service for email automation using Mailgun API"""
     
     def __init__(

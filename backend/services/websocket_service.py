@@ -38,7 +38,7 @@ class WebSocketMessage:
         self.metadata = metadata or {}
         self.timestamp = datetime.now(timezone.utc)
 
-class WebSocketService:
+class WebSocketService(BaseService):
     """Enhanced WebSocket service with proper MCP filesystem integration"""
     
     def __init__(self, app, mcp_filesystem_service=None):
