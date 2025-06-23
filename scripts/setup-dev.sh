@@ -9,7 +9,7 @@ echo "🤖 Setting up Swarm Multi-Agent System v3.0 Development Environment"
 echo "=================================================================="
 
 # Check if we're in the right directory
-if [ ! -f "README.md" ] || [ ! -d "current" ]; then
+if [ ! -f "README.md" ] || [ ! -d "backend" ] || [ ! -d "frontend" ]; then
     echo "❌ Error: Please run this script from the swarm-platform-v3 root directory"
     exit 1
 fi
@@ -47,7 +47,7 @@ echo "✅ npm $NPM_VERSION found"
 # Setup backend
 echo ""
 echo "🐍 Setting up Python backend..."
-cd current/backend
+cd backend
 
 # Create virtual environment if it doesn't exist
 if [ ! -d "venv" ]; then
@@ -137,12 +137,12 @@ echo "   - Add your SUPERMEMORY_API_KEY and SUPERMEMORY_BASE_URL"
 echo ""
 echo "2. Start the development servers:"
 echo "   Terminal 1 (Backend):"
-echo "   cd current/backend"
+echo "   cd backend"
 echo "   source venv/bin/activate"
 echo "   python main.py"
 echo ""
 echo "   Terminal 2 (Frontend):"
-echo "   cd current/frontend"
+echo "   cd frontend"
 echo "   npm run dev"
 echo ""
 echo "3. Access the application:"
@@ -151,8 +151,8 @@ echo "   - Frontend: http://localhost:5173"
 echo "   - Health Check: http://localhost:5000/api/health"
 echo ""
 echo "📚 Documentation:"
-echo "   - Development Guide: current/docs/DEVELOPMENT_GUIDE.md"
-echo "   - Deployment Guide: current/docs/DEPLOYMENT_GUIDE.md"
+echo "   - Development Guide: docs/DEVELOPMENT_GUIDE.md"
+echo "   - Deployment Guide: docs/DEPLOYMENT_GUIDE.md"
 echo ""
 echo "🤖 Happy coding with Swarm Multi-Agent System v3.0!"
 

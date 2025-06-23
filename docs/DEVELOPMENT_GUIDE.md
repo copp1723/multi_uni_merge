@@ -37,11 +37,11 @@ cp .env.example .env
 ### 3. Development Environment
 ```bash
 # Terminal 1: Backend
-cd current/backend
+cd backend
 python main.py
 
 # Terminal 2: Frontend
-cd current/frontend
+cd frontend
 npm run dev
 
 # Terminal 3: Redis (optional)
@@ -53,7 +53,7 @@ redis-server
 ### Backend Architecture
 
 ```
-current/backend/
+backend/
 ├── main.py                 # Application entry point
 ├── swarm_orchestrator.py   # Enhanced orchestrator with Communication Agent
 ├── services/               # Service layer
@@ -219,7 +219,7 @@ result = await cache.get("key")
 ### Component Structure
 
 ```
-current/frontend/src/
+frontend/src/
 ├── components/
 │   ├── ui/                 # Reusable UI components
 │   └── EnhancedComponents.jsx  # Agent-specific components
@@ -295,7 +295,7 @@ import { NewFeature } from './components/NewFeature';
 pip install pytest pytest-asyncio
 
 # Run tests
-cd current/backend
+cd backend
 python -m pytest tests/ -v
 
 # Test specific service
@@ -318,7 +318,7 @@ async def test_postgresql_connection():
 ### Frontend Testing
 
 ```bash
-cd current/frontend
+cd frontend
 npm test
 ```
 
