@@ -327,12 +327,7 @@ class SwarmApplication:
             logger.info("✅ WebSocket service initialized")
             
             # Initialize Swarm Orchestrator
-            self.orchestrator = SwarmOrchestrator(
-                openrouter_service=get_openrouter_service(),
-                supermemory_service=get_supermemory_service(),
-                mcp_filesystem_service=get_mcp_filesystem_service(),
-                websocket_service=websocket_service
-            )
+            self.orchestrator = SwarmOrchestrator()
             logger.info("✅ Swarm Orchestrator initialized")
             
             self._services_initialized = True
