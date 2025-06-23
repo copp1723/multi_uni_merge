@@ -588,12 +588,25 @@ const MentionsAutocomplete = ({ query, agents, onSelect }) => {
     a.name.toLowerCase().includes(query.toLowerCase())
   );
   if (filtered.length === 0) return null;
+
   return (
-    <div className="absolute z-20 mt-1 bg-white border rounded shadow max-h-40 overflow-y-auto">
+    <div
+      role="listbox"
+      aria-label="Agent suggestions"
+      className="absolute z-20 mt-1 bg-white border rounded shadow max-h-40 overflow-y-auto"
+    >
       {filtered.map((agent) => (
         <div
           key={agent.id}
+          role="option"
+          tabIndex={0}
           onClick={() => onSelect(agent.name)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onSelect(agent.name);
+            }
+          }}
           className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
         >
           @{agent.name}
@@ -602,7 +615,6 @@ const MentionsAutocomplete = ({ query, agents, onSelect }) => {
     </div>
   );
 };
-
 // Per-agent chat window component
 const AgentChatWindow = ({ agent }) => {
   const [messages, setMessages] = useState([]);
