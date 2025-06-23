@@ -1,21 +1,25 @@
-"""
-Supermemory Service - Real implementation for conversation persistence and memory management
-Enables cross-agent memory sharing and automatic conversation referencing
+Supermemory Service - Real-time conversation storage and retrieval
+Provides cross-agent memory sharing and context persistence
 """
 
 import json
 import logging
-from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-
+from dataclasses import dataclass, asdict
+from typing import Dict, List, Any, Optional
 import requests
+
+# Import BaseService for proper service registration
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.service_utils import BaseService, ServiceHealth, ServiceStatus
 
 logger = logging.getLogger(__name__)
 
 @dataclass
 class ConversationEntry:
-    """Represents a single conversation entry"""
+    """Represents a conversation entry for storage"""
     id: str
     agent_id: str
     user_message: str
@@ -26,16 +30,61 @@ class ConversationEntry:
 
 @dataclass
 class MemoryQuery:
-    """Represents a memory query for context retrieval"""
+    """Query parameters for memory retrieval"""
     query: str
     agent_id: Optional[str] = None
     limit: int = 10
     similarity_threshold: float = 0.7
 
-class SupermemoryService:
+class SupermemoryService(BaseService):
     """Service for managing conversation persistence and memory with Supermemory API"""
     
     def __init__(self, api_key: str, base_url: str = "https://api.supermemory.ai"):
+        super().__init__("supermemory")  # Initialize BaseService with service name
+        self.api_key = api_key
+        self.base_url = base_url.rstrip("/")
+        self.headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        
+        # Validate API key on initialization
+        if not self.api_key or not self.api_key.startswith("sm_"):
+            logger.warning("Invalid Supermemory API key format - expected format: sm_*")
+    
+    async def _health_check(self) -> ServiceHealth:
+        """Implement service-specific health check"""
+        try:
+            # Test API connection
+            response = requests.get(
+                f"{self.base_url}/health",
+                headers=self.headers,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                return ServiceHealth(
+                    service_name="supermemory",
+                    status=ServiceStatus.HEALTHY,
+                    details={
+                        "api_status": "connected",
+                        "base_url": self.base_url,
+                        "api_key_format": "valid" if self.api_key.startswith("sm_") else "invalid"
+                    }
+                )
+            else:
+                return ServiceHealth(
+                    service_name="supermemory",
+                    status=ServiceStatus.UNHEALTHY,
+                    details={"error": f"API returned status {response.status_code}"}
+                )
+        except Exception as e:
+            return ServiceHealth(
+                service_name="supermemory",
+                status=ServiceStatus.UNHEALTHY,
+                details={"error": str(e)}
+            )
+    """Service for managing conversation persistence and memory with Supermemory API"""
+    
+    def __init__(self, api_key: str, base_url: str = "https://api.supermemory.ai"):
+        super().__init__("supermemory")
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}

@@ -41,7 +41,7 @@ class FileOperation:
     error_message: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
 
-class MCPFilesystemService:
+class MCPFilesystemService(BaseService):
     """Service for secure filesystem access via Model Context Protocol"""
     
     def __init__(
@@ -49,6 +49,7 @@ class MCPFilesystemService:
         base_path: str = "/tmp/swarm_workspace", 
         max_file_size: int = 10 * 1024 * 1024  # 10MB default
     ):
+        super().__init__("mcp_filesystem")  # Initialize BaseService with service name
         self.base_path = Path(base_path).resolve()
         self.max_file_size = max_file_size
         self.allowed_extensions = {
