@@ -72,6 +72,9 @@ class MailgunService(BaseService):
         webhook_signing_key: str = None,
         base_url: str = "https://api.mailgun.net/v3",
     ):
+        # Initialize BaseService with service name
+        super().__init__("mailgun")
+        
         self.api_key = api_key
         self.domain = domain
         self.webhook_signing_key = webhook_signing_key
@@ -395,6 +398,61 @@ System Monitoring
             logger.error(f"❌ Error verifying webhook signature: {e}")
             return False
     
+    async def _health_check(self) -> ServiceHealth:
+        """Implement health check for BaseService abstract method"""
+        try:
+            # Use existing test_connection logic for health check
+            response = requests.get(
+                f"{self.base_url}/{self.domain}",
+                auth=self.auth,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                return ServiceHealth(
+                    status=ServiceStatus.HEALTHY,
+                    message="Mailgun service is healthy and responsive",
+                    details={
+                        "domain": self.domain,
+                        "api_endpoint": self.base_url,
+                        "templates_count": len(self.templates),
+                        "webhook_configured": bool(self.webhook_signing_key)
+                    },
+                    last_check=datetime.now(timezone.utc).isoformat()
+                )
+            else:
+                return ServiceHealth(
+                    status=ServiceStatus.UNHEALTHY,
+                    message=f"Mailgun API returned status {response.status_code}",
+                    details={
+                        "status_code": response.status_code,
+                        "response_text": response.text[:200]  # Limit response text
+                    },
+                    last_check=datetime.now(timezone.utc).isoformat()
+                )
+                
+        except requests.exceptions.Timeout:
+            return ServiceHealth(
+                status=ServiceStatus.UNHEALTHY,
+                message="Mailgun API connection timeout",
+                details={"error": "Connection timeout after 10 seconds"},
+                last_check=datetime.now(timezone.utc).isoformat()
+            )
+        except requests.exceptions.RequestException as e:
+            return ServiceHealth(
+                status=ServiceStatus.UNHEALTHY,
+                message="Mailgun API connection failed",
+                details={"error": str(e)},
+                last_check=datetime.now(timezone.utc).isoformat()
+            )
+        except Exception as e:
+            return ServiceHealth(
+                status=ServiceStatus.ERROR,
+                message="Unexpected error during health check",
+                details={"error": str(e)},
+                last_check=datetime.now(timezone.utc).isoformat()
+            )
+
     def test_connection(self) -> bool:
         """Test the Mailgun API connection"""
         try:
