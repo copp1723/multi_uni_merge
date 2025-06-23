@@ -328,6 +328,88 @@ class SwarmApplication:
 
             return jsonify(format_api_response(config))
 
+        @self.app.route("/api/transform", methods=["POST"])
+        @handle_errors("Transform failed")
+        def transform_text():
+            """Transform text using specified agent"""
+            data = request.get_json() or {}
+            text = data.get("text", "").strip()
+            agent_id = data.get("agent_id")
+            
+            if not text:
+                raise SwarmError("No text provided for transformation", status_code=400)
+            
+            if not agent_id:
+                raise SwarmError("No agent specified for transformation", status_code=400)
+            
+            if not self.orchestrator:
+                raise SwarmError("Orchestrator not initialized")
+            
+            # Get agent configuration
+            agent_config = self.orchestrator.get_agent_config(agent_id)
+            if not agent_config:
+                raise SwarmError(f"Agent {agent_id} not found", status_code=404)
+            
+            try:
+                from .services.openrouter_service import get_openrouter_service
+                
+                openrouter = get_openrouter_service()
+                if not openrouter:
+                    raise SwarmError("OpenRouter service not initialized")
+                
+                # Prepare the prompt based on agent type
+                system_prompt = agent_config.get("system_prompt", "")
+                
+                # Create transformation prompt
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Please transform the following text:\n\n{text}"}
+                ]
+                
+                # Get current model from agent config
+                model = agent_config.get("current_model", "openai/gpt-3.5-turbo")
+                
+                # Generate transformation
+                response = openrouter.chat_completion(
+                    messages=messages,
+                    model=model,
+                    temperature=0.7,
+                    max_tokens=1000
+                )
+                
+                transformed_text = response.strip()
+                
+                # Store transformation in memory if Supermemory is available
+                try:
+                    from .services.supermemory_service import get_supermemory_service
+                    supermemory = get_supermemory_service()
+                    if supermemory:
+                        supermemory.store_memory(
+                            f"Transformation by {agent_config['name']}: {text[:50]}... -> {transformed_text[:50]}...",
+                            metadata={
+                                "type": "transformation",
+                                "agent_id": agent_id,
+                                "agent_name": agent_config['name'],
+                                "original_length": len(text),
+                                "transformed_length": len(transformed_text)
+                            }
+                        )
+                except Exception as e:
+                    logger.warning(f"Failed to store transformation in memory: {e}")
+                
+                return jsonify(format_api_response({
+                    "original_text": text,
+                    "transformed_text": transformed_text,
+                    "agent_id": agent_id,
+                    "agent_name": agent_config['name'],
+                    "model_used": model,
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }))
+                
+            except Exception as e:
+                logger.error(f"Transform failed: {e}")
+                raise SwarmError(f"Transform failed: {str(e)}")
+
         # Test endpoints for core features
         @self.app.route("/api/test/mcp-filesystem", methods=["GET", "POST"])
         @handle_errors("MCP Filesystem test failed")
