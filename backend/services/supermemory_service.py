@@ -11,11 +11,8 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
-# Import BaseService for proper service registration
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.service_utils import BaseService, ServiceHealth, ServiceStatus
+# Import BaseService using relative imports
+from ..utils.service_utils import BaseService, ServiceHealth, ServiceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -54,13 +51,23 @@ class SupermemoryService(BaseService):
     async def _health_check(self) -> ServiceHealth:
         """Implement service-specific health check"""
         try:
-            return ServiceHealth(status=ServiceStatus.HEALTHY, message="Service operational", details={
+            return ServiceHealth(
+                status=ServiceStatus.HEALTHY, 
+                message="Service operational", 
+                details={
                     "api_status": "configured",
                     "base_url": self.base_url,
                     "api_key_format": "valid" if self.api_key.startswith("sm_") else "invalid"
-                }, last_check=datetime.now(timezone.utc).isoformat())
+                }, 
+                last_check=datetime.now(timezone.utc).isoformat()
+            )
         except Exception as e:
-            return ServiceHealth(status=ServiceStatus.UNHEALTHY, message="Service operational", details={"error": str(e)}, last_check=datetime.now(timezone.utc).isoformat())
+            return ServiceHealth(
+                status=ServiceStatus.UNHEALTHY, 
+                message=f"Service error: {str(e)}", 
+                details={"error": str(e)}, 
+                last_check=datetime.now(timezone.utc).isoformat()
+            )
     
     def store_conversation(
         self,
@@ -345,4 +352,3 @@ def initialize_supermemory(api_key: str, base_url: str = "https://api.supermemor
 def get_supermemory_service() -> Optional[SupermemoryService]:
     """Get the global Supermemory service instance"""
     return supermemory_service
-
