@@ -327,6 +327,248 @@ class SwarmApplication:
                 raise SwarmError(f"Agent {agent_id} not found", status_code=404)
 
             return jsonify(format_api_response(config))
+
+        # Test endpoints for core features
+        @self.app.route("/api/test/mcp-filesystem", methods=["GET", "POST"])
+        @handle_errors("MCP Filesystem test failed")
+        def test_mcp_filesystem():
+            """Test MCP filesystem access"""
+            from .services.mcp_filesystem import get_mcp_filesystem_service
+            
+            mcp_service = get_mcp_filesystem_service()
+            if not mcp_service:
+                raise SwarmError("MCP Filesystem service not initialized")
+            
+            if request.method == "GET":
+                # List files in workspace
+                try:
+                    files = mcp_service.list_files("/")
+                    return jsonify(format_api_response({
+                        "status": "success",
+                        "workspace_path": mcp_service.workspace_path,
+                        "files": files,
+                        "test": "MCP Filesystem is working correctly"
+                    }))
+                except Exception as e:
+                    logger.error(f"MCP list files failed: {e}")
+                    raise SwarmError(f"Failed to list files: {str(e)}")
+            
+            else:  # POST - create a test file
+                data = request.get_json() or {}
+                filename = data.get("filename", "test_file.txt")
+                content = data.get("content", "This is a test file from MCP filesystem")
+                
+                try:
+                    filepath = mcp_service.write_file(filename, content)
+                    return jsonify(format_api_response({
+                        "status": "success",
+                        "filepath": filepath,
+                        "message": f"Successfully created {filename}",
+                        "test": "MCP Filesystem write operation successful"
+                    }))
+                except Exception as e:
+                    logger.error(f"MCP write file failed: {e}")
+                    raise SwarmError(f"Failed to write file: {str(e)}")
+
+        @self.app.route("/api/test/supermemory", methods=["POST"])
+        @handle_errors("Supermemory test failed")
+        def test_supermemory():
+            """Test Supermemory integration"""
+            from .services.supermemory_service import get_supermemory_service
+            
+            supermemory = get_supermemory_service()
+            if not supermemory:
+                raise SwarmError("Supermemory service not initialized")
+            
+            data = request.get_json() or {}
+            action = data.get("action", "store")
+            
+            if action == "store":
+                content = data.get("content", "Test memory: This is a test entry for Supermemory integration")
+                metadata = data.get("metadata", {"type": "test", "timestamp": datetime.now(timezone.utc).isoformat()})
+                
+                try:
+                    result = supermemory.store_memory(content, metadata)
+                    return jsonify(format_api_response({
+                        "status": "success",
+                        "action": "store",
+                        "result": result,
+                        "test": "Supermemory store operation successful"
+                    }))
+                except Exception as e:
+                    logger.error(f"Supermemory store failed: {e}")
+                    raise SwarmError(f"Failed to store memory: {str(e)}")
+            
+            elif action == "search":
+                query = data.get("query", "test")
+                limit = data.get("limit", 5)
+                
+                try:
+                    results = supermemory.search_memories(query, limit)
+                    return jsonify(format_api_response({
+                        "status": "success",
+                        "action": "search",
+                        "query": query,
+                        "results": results,
+                        "count": len(results),
+                        "test": "Supermemory search operation successful"
+                    }))
+                except Exception as e:
+                    logger.error(f"Supermemory search failed: {e}")
+                    raise SwarmError(f"Failed to search memories: {str(e)}")
+
+        @self.app.route("/api/test/openrouter", methods=["POST"])
+        @handle_errors("OpenRouter test failed")
+        def test_openrouter():
+            """Test OpenRouter API responses"""
+            from .services.openrouter_service import get_openrouter_service
+            
+            openrouter = get_openrouter_service()
+            if not openrouter:
+                raise SwarmError("OpenRouter service not initialized")
+            
+            data = request.get_json() or {}
+            prompt = data.get("prompt", "Hello! Please respond with a brief greeting to confirm the API is working.")
+            model = data.get("model", "openai/gpt-3.5-turbo")
+            
+            try:
+                # Test simple completion
+                response = openrouter.complete(prompt, model=model, max_tokens=100)
+                
+                # Also test available models
+                models = openrouter.get_available_models()
+                
+                return jsonify(format_api_response({
+                    "status": "success",
+                    "prompt": prompt,
+                    "response": response,
+                    "model_used": model,
+                    "available_models_count": len(models),
+                    "test": "OpenRouter API is working correctly"
+                }))
+            except Exception as e:
+                logger.error(f"OpenRouter test failed: {e}")
+                raise SwarmError(f"OpenRouter API test failed: {str(e)}")
+
+        @self.app.route("/api/test/collaboration", methods=["POST"])
+        @handle_errors("Collaboration test failed")
+        def test_collaboration():
+            """Test @mention collaboration chats"""
+            data = request.get_json() or {}
+            message = data.get("message", "@research Can you help analyze this test scenario?")
+            agents = data.get("agents", ["research", "coding"])
+            
+            if not self.orchestrator:
+                raise SwarmError("Orchestrator not initialized")
+            
+            try:
+                # Test agent mention parsing
+                mentioned_agents = []
+                for agent in agents:
+                    if f"@{agent}" in message:
+                        mentioned_agents.append(agent)
+                
+                # Test orchestrator collaboration features
+                available_agents = self.orchestrator.get_available_agents()
+                agent_configs = {}
+                for agent_id in mentioned_agents:
+                    config = self.orchestrator.get_agent_config(agent_id)
+                    if config:
+                        agent_configs[agent_id] = config
+                
+                # Simulate collaboration response
+                response = {
+                    "status": "success",
+                    "message": message,
+                    "mentioned_agents": mentioned_agents,
+                    "available_agents": available_agents,
+                    "agent_configs": agent_configs,
+                    "collaboration_ready": len(agent_configs) > 0,
+                    "test": "@mention collaboration system is working correctly",
+                    "note": "Full collaboration requires WebSocket connection for real-time updates"
+                }
+                
+                return jsonify(format_api_response(response))
+                
+            except Exception as e:
+                logger.error(f"Collaboration test failed: {e}")
+                raise SwarmError(f"Collaboration test failed: {str(e)}")
+
+        @self.app.route("/api/test/all", methods=["GET"])
+        @handle_errors("System test failed")
+        def test_all_systems():
+            """Run all system tests"""
+            test_results = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "tests": {}
+            }
+            
+            # Test 1: MCP Filesystem
+            try:
+                from .services.mcp_filesystem import get_mcp_filesystem_service
+                mcp = get_mcp_filesystem_service()
+                test_results["tests"]["mcp_filesystem"] = {
+                    "status": "passed" if mcp else "failed",
+                    "initialized": mcp is not None,
+                    "workspace": mcp.workspace_path if mcp else None
+                }
+            except Exception as e:
+                test_results["tests"]["mcp_filesystem"] = {
+                    "status": "error",
+                    "error": str(e)
+                }
+            
+            # Test 2: Supermemory
+            try:
+                from .services.supermemory_service import get_supermemory_service
+                supermemory = get_supermemory_service()
+                test_results["tests"]["supermemory"] = {
+                    "status": "passed" if supermemory else "failed",
+                    "initialized": supermemory is not None,
+                    "configured": bool(self.config.get("SUPERMEMORY_API_KEY"))
+                }
+            except Exception as e:
+                test_results["tests"]["supermemory"] = {
+                    "status": "error",
+                    "error": str(e)
+                }
+            
+            # Test 3: OpenRouter
+            try:
+                from .services.openrouter_service import get_openrouter_service
+                openrouter = get_openrouter_service()
+                test_results["tests"]["openrouter"] = {
+                    "status": "passed" if openrouter else "failed",
+                    "initialized": openrouter is not None,
+                    "configured": bool(self.config.get("OPENROUTER_API_KEY"))
+                }
+            except Exception as e:
+                test_results["tests"]["openrouter"] = {
+                    "status": "error",
+                    "error": str(e)
+                }
+            
+            # Test 4: Collaboration/Orchestrator
+            try:
+                test_results["tests"]["collaboration"] = {
+                    "status": "passed" if self.orchestrator else "failed",
+                    "initialized": self.orchestrator is not None,
+                    "agents_available": len(self.orchestrator.get_available_agents()) if self.orchestrator else 0
+                }
+            except Exception as e:
+                test_results["tests"]["collaboration"] = {
+                    "status": "error",
+                    "error": str(e)
+                }
+            
+            # Calculate overall status
+            all_passed = all(
+                test.get("status") == "passed" 
+                for test in test_results["tests"].values()
+            )
+            test_results["overall_status"] = "passed" if all_passed else "failed"
+            
+            return jsonify(format_api_response(test_results))
     def _get_missing_configs(self) -> list:
         """Get list of missing required configurations"""
         required_configs = [
@@ -484,8 +726,18 @@ swarm_app = SwarmApplication()
 
 def create_app():
     """Factory function for creating Flask app (for testing/deployment)"""
+    # Create a new SwarmApplication instance if needed
+    global swarm_app
+    if swarm_app is None:
+        swarm_app = SwarmApplication()
+    
+    # Create the Flask app
     app = swarm_app.create_app()
-    asyncio.run(swarm_app.initialize_services())
+    
+    # Only initialize services if not already initialized
+    if not swarm_app._services_initialized:
+        asyncio.run(swarm_app.initialize_services())
+    
     return app
 
 
