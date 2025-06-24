@@ -1,5 +1,5 @@
 """
-WSGI entry point for gunicorn with proper SocketIO support
+WSGI entry point for production deployment
 """
 import os
 import sys
@@ -9,30 +9,23 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Add paths
+# Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Patch eventlet first - MUST be done before any other imports
-import eventlet
-eventlet.monkey_patch()
-
-# Now import the app
+# Import and create the Flask app
 from backend.main import create_app, swarm_app
 
-# Create the Flask app
 logger.info("Creating Flask app for WSGI...")
 app = create_app()
 
-# Get the SocketIO instance
-socketio = swarm_app.socketio if hasattr(swarm_app, 'socketio') else None
+# For gunicorn, we expose the Flask app directly
+# The SocketIO functionality is already integrated within the app
+application = app
 
-if socketio:
-    logger.info("✅ SocketIO instance found - WebSocket support enabled")
-    # For gunicorn, we need to expose the SocketIO app, not the Flask app
-    application = socketio
-else:
-    logger.error("❌ SocketIO instance not found - WebSocket will not work")
-    application = app
+# Debug: Log static folder configuration
+logger.info(f"Flask static_folder: {app.static_folder}")
+logger.info(f"Flask static_url_path: {app.static_url_path}")
+if app.static_folder:
+    logger.info(f"Static folder exists: {os.path.exists(app.static_folder)}")
 
-# Also expose app and socketio at module level for debugging
-__all__ = ['application', 'app', 'socketio']
+__all__ = ['application', 'app']
