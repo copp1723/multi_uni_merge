@@ -55,7 +55,7 @@ services:
       pip list | grep -E "(flask|gunicorn|psycopg2|requests)"
       echo "✅ Build completed successfully!"
     # Start command with enhanced logging and timeout
-    startCommand: gunicorn --worker-class eventlet --bind 0.0.0.0:$PORT --workers 1 --timeout 120 --access-logfile - --error-logfile - --log-level info app:app
+    startCommand: gunicorn --worker-class eventlet --bind 0.0.0.0:$PORT --workers 1 --timeout 120 --access-logfile - --error-logfile - --log-level info app_clean:application
     # Health check endpoint
     healthCheckPath: /api/health
     # Auto-deploy on git push
