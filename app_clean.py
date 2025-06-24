@@ -161,7 +161,7 @@ def debug_static():
         "frontend_dist": str(FRONTEND_DIST),
         "exists": FRONTEND_DIST.exists(),
         "assets_exist": FRONTEND_ASSETS.exists(),
-        "files": list(FRONTEND_ASSETS.glob('*')) if FRONTEND_ASSETS.exists() else []
+        "files": [str(f) for f in FRONTEND_ASSETS.glob('*')] if FRONTEND_ASSETS.exists() else []
     })
 
 # 10. Export for gunicorn
