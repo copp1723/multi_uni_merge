@@ -27,7 +27,7 @@ services:
       
       echo "✅ Build completed successfully!"
     # Start command - SIMPLE, no eventlet
-    startCommand: python app.py
+    startCommand: python start_production.py
     # Health check endpoint
     healthCheckPath: /api/health
     autoDeploy: true
