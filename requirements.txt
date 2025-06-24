@@ -1,28 +1,28 @@
 # Core Flask dependencies
-Flask==3.0.0
-Flask-CORS==4.0.0
-Flask-SocketIO==5.3.6
+Flask==3.1.1
+Flask-CORS==6.0.1
+Flask-SocketIO==5.5.1
 
 # Database (updated for Python 3.13 compatibility)
 psycopg2-binary==2.9.10
 SQLAlchemy==2.0.41
 Flask-SQLAlchemy==3.1.1
-Flask-Migrate==4.0.5
+Flask-Migrate==4.1.0
 
 # HTTP client
-requests==2.31.0
+requests==2.32.4
 
 # WSGI server for production
-gunicorn==21.2.0
+gunicorn==23.0.0
 
 # Environment management
-python-dotenv==1.0.0
+python-dotenv==1.1.1
 
 # WebSocket support
-python-socketio==5.10.0
+python-socketio==5.13.0
 
 # Async support
-eventlet==0.33.3
+eventlet==0.40.1
 aiohttp==3.12.13
 aiofiles==24.1.0
 
@@ -45,5 +45,5 @@ tenacity==9.0.0
 
 # Development dependencies (optional)
 pytest==7.4.3
-black==23.11.0
+black==25.1.0
 flake8==6.1.0
