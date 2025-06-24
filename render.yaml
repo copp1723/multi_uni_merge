@@ -22,7 +22,9 @@ services:
       cd ..
       
       echo "✅ Build completed successfully!"
-    startCommand: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT --timeout 120 app_clean:application
+    # Start command with enhanced logging and timeout
+    startCommand: gunicorn --worker-class eventlet --bind 0.0.0.0:$PORT --workers 1 --timeout 120 --access-logfile - --error-logfile - --log-level info app_clean:application
+    # Health check endpoint
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
