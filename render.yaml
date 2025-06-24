@@ -11,7 +11,7 @@ services:
       echo "📦 Installing minimal Python dependencies..."
       pip install --upgrade pip setuptools wheel
       pip cache purge
-      pip install -r requirements_minimal.txt --no-cache-dir
+      pip install -r requirements.txt --no-cache-dir
       
       echo "🔨 Building React frontend..."
       cd frontend
@@ -24,7 +24,7 @@ services:
       
       echo "✅ Build completed successfully!"
     # Start command - SIMPLE, no eventlet
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --access-logfile - --error-logfile - --log-level info app_simple_no_ws:application
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --access-logfile - --error-logfile - --log-level info app:application
     # Health check endpoint
     healthCheckPath: /api/health
     autoDeploy: true
