@@ -27,7 +27,7 @@ services:
       
       echo "✅ Build completed successfully!"
     # Start command - SIMPLE, no eventlet
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --access-logfile - --error-logfile - --log-level info wsgi:application
+    startCommand: python app.py
     # Health check endpoint
     healthCheckPath: /api/health
     autoDeploy: true
