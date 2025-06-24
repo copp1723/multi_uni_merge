@@ -60,9 +60,64 @@ function App() {
     try {
       const response = await fetch(`${API_BASE_URL}/api/models`);
       const data = await response.json();
-      setModelOptions(data.data || []);
+      let allModels = data.data || [];
+
+      // Ensure QWEN CODER and DEEPSEEK are present
+      const requiredModelNames = ["QWEN CODER", "DEEPSEEK"];
+      let topModels = [];
+      let otherModels = [];
+
+      // Separate required models and other models
+      allModels.forEach(model => {
+        if (requiredModelNames.includes(model.name)) {
+          topModels.push(model);
+        } else {
+          otherModels.push(model);
+        }
+      });
+
+      // Take top N models from the remaining, ensuring not to duplicate
+      const remainingSlots = 15 - topModels.length;
+      if (remainingSlots > 0) {
+        topModels = [...topModels, ...otherModels.slice(0, remainingSlots)];
+      }
+
+      // If we have less than 15 models in total after including required ones,
+      // this will just use all available models that fit, including the required ones.
+      // If we had more than 15 after including required ones (e.g. required were not in top N),
+      // the slice above ensures we don't exceed 15 by taking only `remainingSlots`.
+
+      // Remove duplicates if any model was in both required and top N from otherModels
+      // (though current logic should prevent this, good to be safe)
+      const uniqueModelNames = new Set();
+      const finalModels = [];
+      for (const model of topModels) {
+        if (!uniqueModelNames.has(model.name)) {
+          finalModels.push(model);
+          uniqueModelNames.add(model.name);
+        }
+      }
+
+      // Ensure the two specific models are at the top of the list if they exist
+      const qwenModel = finalModels.find(m => m.name === "QWEN CODER");
+      const deepseekModel = finalModels.find(m => m.name === "DEEPSEEK");
+
+      let sortedModels = finalModels.filter(m => m.name !== "QWEN CODER" && m.name !== "DEEPSEEK");
+
+      if (deepseekModel) {
+        sortedModels.unshift(deepseekModel);
+      }
+      if (qwenModel) {
+        sortedModels.unshift(qwenModel);
+      }
+
+      // Ensure the list does not exceed 15 models
+      setModelOptions(sortedModels.slice(0, 15));
+
     } catch (error) {
       console.error('Error loading models:', error);
+      // Optionally set to empty or default models in case of error
+      setModelOptions([]);
     }
   };
 
