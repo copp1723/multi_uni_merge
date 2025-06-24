@@ -197,77 +197,103 @@ class SwarmApplication:
         @self.app.route("/", methods=["GET"])
         def root():
             """Serve the frontend application"""
-            try:
-                return self.app.send_static_file("index.html")
-            except Exception as e:
-                # Log the error for debugging
-                logger.error(f"Failed to serve index.html: {e}")
-                logger.error(f"Static folder: {self.app.static_folder}")
-                logger.error(f"Static folder exists: {os.path.exists(self.app.static_folder) if self.app.static_folder else False}")
-                
-                # Try to serve temporary static page
-                static_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static_index.html")
-                if os.path.exists(static_path):
-                    return send_file(static_path)
-                # Fallback to API info if frontend not available
-                return jsonify(
-                    format_api_response(
-                        {
-                            "name": "🤖 Swarm Multi-Agent System",
-                            "version": "3.0.0",
-                            "status": "operational",
-                            "note": "Frontend not built - showing API info",
-                            "static_folder": self.app.static_folder,
-                            "static_exists": os.path.exists(self.app.static_folder) if self.app.static_folder else False,
-                            "endpoints": {
-                                "health": "/api/health",
-                                "system": "/api/system",
-                                "agents": "/api/agents",
-                                "conversations": "/api/conversations",
-                                "websocket": "/socket.io",
-                                "diagnostics": "/api/diagnostics",
-                            },
-                            "features": [
-                                "6 Specialized AI Agents (including Communication Agent)",
-                                "Real-time Collaboration via WebSocket",
-                                "Cross-Agent Memory Sharing",
-                                "OpenRouter AI Integration",
-                                "SuperMemory Knowledge Base",
-                                "MCP Filesystem Access",
-                                "Email Integration",
-                                "Production Monitoring",
-                            ],
-                        }
-                    )
+            # Multiple paths to check for index.html
+            possible_paths = [
+                os.path.join(self.app.static_folder, "index.html") if self.app.static_folder else None,
+                os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist", "index.html"),
+                os.path.join(os.path.dirname(os.path.dirname(__file__)), "dist", "index.html"),
+                "/opt/render/project/src/frontend/dist/index.html",  # Render.com specific path
+            ]
+            
+            for path in possible_paths:
+                if path and os.path.exists(path):
+                    logger.info(f"Serving index.html from: {path}")
+                    return send_file(path)
+            
+            # Log debugging info
+            logger.error(f"Failed to find index.html")
+            logger.error(f"Static folder: {self.app.static_folder}")
+            logger.error(f"Current working directory: {os.getcwd()}")
+            logger.error(f"App directory: {os.path.dirname(__file__)}")
+            
+            # Try to serve temporary static page
+            static_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static_index.html")
+            if os.path.exists(static_path):
+                return send_file(static_path)
+            
+            # Fallback to API info if frontend not available
+            return jsonify(
+                format_api_response(
+                    {
+                        "name": "🤖 Swarm Multi-Agent System",
+                        "version": "3.0.0",
+                        "status": "operational",
+                        "note": "Frontend not built - showing API info",
+                        "static_folder": self.app.static_folder,
+                        "cwd": os.getcwd(),
+                        "endpoints": {
+                            "health": "/api/health",
+                            "system": "/api/system",
+                            "agents": "/api/agents",
+                            "conversations": "/api/conversations",
+                            "websocket": "/socket.io",
+                            "diagnostics": "/api/diagnostics",
+                        },
+                        "features": [
+                            "6 Specialized AI Agents (including Communication Agent)",
+                            "Real-time Collaboration via WebSocket",
+                            "Cross-Agent Memory Sharing",
+                            "OpenRouter AI Integration",
+                            "SuperMemory Knowledge Base",
+                            "MCP Filesystem Access",
+                            "Email Integration",
+                            "Production Monitoring",
+                        ],
+                    }
                 )
+            )
         
         @self.app.route("/<path:path>", methods=["GET"])
         def catch_all(path):
             """Catch-all route for React Router"""
             logger.info(f"Catch-all route hit for path: {path}")
             
-            # First, try to serve static files (JS, CSS, images)
-            try:
-                logger.info(f"Attempting to serve static file: {path}")
-                return self.app.send_static_file(path)
-            except Exception as e:
-                logger.error(f"Failed to serve static file {path}: {e}")
-                
-                # If not a static file, serve index.html for React Router
-                try:
-                    logger.info("Falling back to serve index.html")
-                    return self.app.send_static_file("index.html")
-                except Exception as e2:
-                    logger.error(f"Failed to serve index.html: {e2}")
-                    
-                    # Fallback to temporary page
-                    static_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static_index.html")
-                    if os.path.exists(static_path):
-                        logger.info("Serving static_index.html fallback")
-                        return send_file(static_path)
-                    
-                    logger.error(f"No fallback available for path: {path}")
-                    return jsonify({"error": "Frontend not available", "path": path}), 404
+            # Skip API routes
+            if path.startswith(('api/', 'socket.io')):
+                return jsonify({"error": "Not found", "path": path}), 404
+            
+            # Try multiple locations for static files
+            if self.app.static_folder:
+                static_file_path = os.path.join(self.app.static_folder, path)
+                if os.path.exists(static_file_path) and os.path.isfile(static_file_path):
+                    logger.info(f"Serving static file: {static_file_path}")
+                    return send_file(static_file_path)
+            
+            # Also check Render.com specific path
+            render_static_path = f"/opt/render/project/src/frontend/dist/{path}"
+            if os.path.exists(render_static_path) and os.path.isfile(render_static_path):
+                logger.info(f"Serving static file from Render path: {render_static_path}")
+                return send_file(render_static_path)
+            
+            # For non-static routes, serve index.html for React Router
+            possible_index_paths = [
+                os.path.join(self.app.static_folder, "index.html") if self.app.static_folder else None,
+                "/opt/render/project/src/frontend/dist/index.html",
+                os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist", "index.html"),
+            ]
+            
+            for index_path in possible_index_paths:
+                if index_path and os.path.exists(index_path):
+                    logger.info(f"Serving index.html for React route from: {index_path}")
+                    return send_file(index_path)
+            
+            # Fallback
+            logger.error(f"No file found for path: {path}")
+            static_fallback = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static_index.html")
+            if os.path.exists(static_fallback):
+                return send_file(static_fallback)
+            
+            return jsonify({"error": "Frontend not available", "path": path}), 404
 
         @self.app.route("/api/health", methods=["GET"])
         @handle_errors("Health check failed")
