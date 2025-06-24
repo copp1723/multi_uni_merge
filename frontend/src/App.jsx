@@ -5,22 +5,7 @@ import {
   MessageSquare, Mail, Code, Calendar, Wrench, Smile,
   ChevronDown, Sun, Send
 } from 'lucide-react';
-
-// Dynamically determine API URL based on current location
-const API_BASE_URL = (() => {
-  // If VITE_API_URL is set, use it
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-  
-  // In production, use the same origin as the frontend
-  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return window.location.origin;
-  }
-  
-  // In development, use localhost:5000
-  return 'http://localhost:5000';
-})();
+import { API_BASE_URL, SOCKET_URL } from './config';
 
 function App() {
   // Core State
@@ -71,13 +56,19 @@ function App() {
 
   // Initialize WebSocket connection
   useEffect(() => {
-    socketRef.current = io(`${API_BASE_URL}/swarm`);
+    console.log('Connecting to WebSocket at:', SOCKET_URL);
+    socketRef.current = io(SOCKET_URL);
     socketRef.current.on('swarm_responses', (data) => {
       const responses = data.responses || [];
       setChatMessages((prev) => [...prev, ...responses.map(r => ({ ...r, sender: 'agent' }))]);
     });
-    socketRef.current.on('connect_error', () => {
+    socketRef.current.on('connect_error', (error) => {
+      console.error('WebSocket connection error:', error);
       addNotification('WebSocket connection failed', 'error');
+    });
+    socketRef.current.on('connect', () => {
+      console.log('WebSocket connected successfully');
+      addNotification('Connected to server', 'success');
     });
     return () => {
       socketRef.current?.disconnect();
