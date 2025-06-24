@@ -132,6 +132,10 @@ class SwarmApplication:
         # Register routes
         self._register_routes()
 
+        # Conditionally register test/diagnostic routes if DEBUG is true
+        if self.config["DEBUG"]:
+            self._register_diagnostic_routes()
+
         return app
 
     def _register_error_handlers(self):
@@ -261,60 +265,6 @@ class SwarmApplication:
                     ),
                     500,
                 )
-
-        @self.app.route("/api/diagnostics", methods=["GET"])
-        def diagnostics():
-            """Diagnostic endpoint to check file system and paths"""
-            import glob
-            
-            frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
-            dist_path = os.path.join(frontend_path, "dist")
-            static_folder = self.app.static_folder
-            
-            diagnostics_info = {
-                "current_working_dir": os.getcwd(),
-                "backend_dir": os.path.dirname(__file__),
-                "frontend_path": frontend_path,
-                "frontend_exists": os.path.exists(frontend_path),
-                "dist_path": dist_path,
-                "dist_exists": os.path.exists(dist_path),
-                "static_folder": static_folder,
-                "static_folder_exists": os.path.exists(static_folder) if static_folder else False,
-                "app_root_path": self.app.root_path,
-                "frontend_contents": [],
-                "dist_contents": [],
-                "static_folder_contents": []
-            }
-            
-            # List frontend directory contents
-            if os.path.exists(frontend_path):
-                try:
-                    diagnostics_info["frontend_contents"] = os.listdir(frontend_path)
-                except Exception as e:
-                    diagnostics_info["frontend_contents"] = f"Error: {str(e)}"
-            
-            # List dist directory contents
-            if os.path.exists(dist_path):
-                try:
-                    diagnostics_info["dist_contents"] = os.listdir(dist_path)
-                except Exception as e:
-                    diagnostics_info["dist_contents"] = f"Error: {str(e)}"
-            
-            # List static folder contents
-            if static_folder and os.path.exists(static_folder):
-                try:
-                    diagnostics_info["static_folder_contents"] = os.listdir(static_folder)
-                except Exception as e:
-                    diagnostics_info["static_folder_contents"] = f"Error: {str(e)}"
-            
-            # Check for any index.html files
-            try:
-                index_files = glob.glob("**/index.html", recursive=True)
-                diagnostics_info["index_html_locations"] = index_files[:10]  # Limit to 10
-            except Exception as e:
-                diagnostics_info["index_html_locations"] = f"Error: {str(e)}"
-            
-            return jsonify(diagnostics_info)
 
         @self.app.route("/api/models", methods=["GET"])
         @handle_errors("Failed to get models")
@@ -481,6 +431,64 @@ class SwarmApplication:
             except Exception as e:
                 logger.error(f"Transform failed: {e}")
                 raise SwarmError(f"Transform failed: {str(e)}")
+
+    def _register_diagnostic_routes(self):
+        """Register diagnostic and test API routes (only in DEBUG mode)"""
+        logger.info("🔧 Registering diagnostic and test routes (DEBUG mode)...")
+
+        @self.app.route("/api/diagnostics", methods=["GET"])
+        def diagnostics():
+            """Diagnostic endpoint to check file system and paths"""
+            import glob
+
+            frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+            dist_path = os.path.join(frontend_path, "dist")
+            static_folder = self.app.static_folder
+
+            diagnostics_info = {
+                "current_working_dir": os.getcwd(),
+                "backend_dir": os.path.dirname(__file__),
+                "frontend_path": frontend_path,
+                "frontend_exists": os.path.exists(frontend_path),
+                "dist_path": dist_path,
+                "dist_exists": os.path.exists(dist_path),
+                "static_folder": static_folder,
+                "static_folder_exists": os.path.exists(static_folder) if static_folder else False,
+                "app_root_path": self.app.root_path,
+                "frontend_contents": [],
+                "dist_contents": [],
+                "static_folder_contents": []
+            }
+
+            # List frontend directory contents
+            if os.path.exists(frontend_path):
+                try:
+                    diagnostics_info["frontend_contents"] = os.listdir(frontend_path)
+                except Exception as e:
+                    diagnostics_info["frontend_contents"] = f"Error: {str(e)}"
+
+            # List dist directory contents
+            if os.path.exists(dist_path):
+                try:
+                    diagnostics_info["dist_contents"] = os.listdir(dist_path)
+                except Exception as e:
+                    diagnostics_info["dist_contents"] = f"Error: {str(e)}"
+
+            # List static folder contents
+            if static_folder and os.path.exists(static_folder):
+                try:
+                    diagnostics_info["static_folder_contents"] = os.listdir(static_folder)
+                except Exception as e:
+                    diagnostics_info["static_folder_contents"] = f"Error: {str(e)}"
+
+            # Check for any index.html files
+            try:
+                index_files = glob.glob("**/index.html", recursive=True)
+                diagnostics_info["index_html_locations"] = index_files[:10]  # Limit to 10
+            except Exception as e:
+                diagnostics_info["index_html_locations"] = f"Error: {str(e)}"
+
+            return jsonify(diagnostics_info)
 
         # Test endpoints for core features
         @self.app.route("/api/test/mcp-filesystem", methods=["GET", "POST"])
@@ -723,6 +731,7 @@ class SwarmApplication:
             test_results["overall_status"] = "passed" if all_passed else "failed"
             
             return jsonify(format_api_response(test_results))
+
     def _get_missing_configs(self) -> list:
         """Get list of missing required configurations"""
         required_configs = [
@@ -745,11 +754,10 @@ class SwarmApplication:
         logger.info("🔧 Initializing services...")
 
         try:
-            # Initialize PostgreSQL service
+            # Initialize PostgreSQL manager (not registered as a service anymore)
             if self.config.get("DATABASE_URL"):
-                postgresql_service = initialize_postgresql(self.config["DATABASE_URL"])
-                service_registry.register(postgresql_service)
-                logger.info("✅ PostgreSQL service initialized")
+                initialize_postgresql(self.config["DATABASE_URL"]) # Returns manager, but not registered
+                logger.info("✅ PostgreSQL manager initialized")
             else:
                 logger.warning("⚠️ PostgreSQL not configured")
 

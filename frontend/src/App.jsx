@@ -1,26 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { 
-  Layers, Settings, Cpu, CheckCircle, AlertTriangle, 
-  MessageSquare, Mail, Code, Calendar, Wrench, Smile,
+  Layers, Settings, Cpu, CheckCircle,
+  MessageSquare, Mail, Code, Smile,
   ChevronDown, Sun, Send
 } from 'lucide-react';
-
-// Dynamically determine API URL based on current location
-const API_BASE_URL = (() => {
-  // If VITE_API_URL is set, use it
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-  
-  // In production, use the same origin as the frontend
-  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return window.location.origin;
-  }
-  
-  // In development, use localhost:5000
-  return 'http://localhost:5000';
-})();
+import { API_BASE_URL, WS_BASE_URL } from './utils/config'; // Import centralized URLs
 
 function App() {
   // Core State
@@ -66,12 +51,13 @@ function App() {
       setModelOptions(data.data || []);
     } catch (error) {
       console.error('Error loading models:', error);
+      addNotification('Failed to load AI models', 'error');
     }
   };
 
   // Initialize WebSocket connection
   useEffect(() => {
-    socketRef.current = io(`${API_BASE_URL}/swarm`);
+    socketRef.current = io(`${WS_BASE_URL}/swarm`); // Use WS_BASE_URL for WebSocket
     socketRef.current.on('swarm_responses', (data) => {
       const responses = data.responses || [];
       setChatMessages((prev) => [...prev, ...responses.map(r => ({ ...r, sender: 'agent' }))]);
