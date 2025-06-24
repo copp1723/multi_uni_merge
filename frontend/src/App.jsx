@@ -511,22 +511,21 @@ function App() {
         </div>
       </div>
 
-      {/* Notifications Area */}
-        {notifications.map((notification) => (
-          <div
-            key={notification.id}
-            className={`fixed top-4 right-4 px-4 py-3 rounded-lg text-sm font-medium shadow-lg z-50 ${
-              notification.type === 'error' 
-                ? 'bg-red-100 text-red-800 border border-red-200' 
-                : notification.type === 'success'
-                ? 'bg-green-100 text-green-800 border border-green-200'
-                : 'bg-blue-100 text-blue-800 border border-blue-200'
-            }`}
-          >
-            {notification.message}
-          </div>
-        ))}
-      </div>
+      {/* Notifications Area - Moved inside the main div */}
+      {notifications.map((notification) => (
+        <div
+          key={notification.id}
+          className={`fixed top-4 right-4 px-4 py-3 rounded-lg text-sm font-medium shadow-lg z-50 ${
+            notification.type === 'error'
+              ? 'bg-red-100 text-red-800 border border-red-200'
+              : notification.type === 'success'
+              ? 'bg-green-100 text-green-800 border border-green-200'
+              : 'bg-blue-100 text-blue-800 border border-blue-200'
+          }`}
+        >
+          {notification.message}
+        </div>
+      ))}
     </div>
   );
 }
