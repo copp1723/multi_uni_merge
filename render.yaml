@@ -7,24 +7,27 @@ services:
     buildCommand: |
       echo "🔧 Starting CLEAN build process..."
       echo "Current directory: $(pwd)"
+      echo "Directory contents:"
+      ls -la
       
-      echo "📦 Installing minimal Python dependencies..."
+      echo "📦 Installing Python dependencies..."
       pip install --upgrade pip setuptools wheel
       pip cache purge
       pip install -r requirements.txt --no-cache-dir
       
       echo "🔨 Building React frontend..."
+      echo "Checking if frontend directory exists:"
+      ls -la frontend/
       cd frontend
       npm install
       npm run build
       echo "Frontend build complete"
       ls -la dist/
-      ls -la dist/assets/
       cd ..
       
       echo "✅ Build completed successfully!"
     # Start command - SIMPLE, no eventlet
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --access-logfile - --error-logfile - --log-level info app:application
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --access-logfile - --error-logfile - --log-level info wsgi:application
     # Health check endpoint
     healthCheckPath: /api/health
     autoDeploy: true
@@ -33,8 +36,14 @@ services:
         value: 3.11.9
       - key: OPENROUTER_API_KEY
         sync: false
+      - key: SUPERMEMORY_API_KEY
+        sync: false
+      - key: SUPERMEMORY_BASE_URL
+        value: https://api.supermemory.ai
       - key: SECRET_KEY
         generateValue: true
+      - key: FLASK_ENV
+        value: production
       - key: PORT
         value: "10000"
 
