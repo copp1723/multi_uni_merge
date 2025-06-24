@@ -1,8 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-
-// WebSocket helper hook
-const useWebSocket = (onMessage, onHistory, onStatus) => {
 import { WS_BASE_URL } from '../utils/config'; // Import centralized WS_BASE_URL
 
 // WebSocket helper hook
