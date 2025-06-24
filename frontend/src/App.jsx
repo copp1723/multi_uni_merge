@@ -18,6 +18,10 @@ function App() {
   const [selectedModel, setSelectedModel] = useState('GPT-4o');
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [modelOptions, setModelOptions] = useState([]);
+  // WebSocket state
+  const [openChatTabs, setOpenChatTabs] = useState([]);
+  const [activeChatTab, setActiveChatTab] = useState(null);
+  const [agentMessages, setAgentMessages] = useState({});
   const [transformText, setTransformText] = useState('');
   const [isTransforming, setIsTransforming] = useState(false);
 
@@ -44,6 +48,44 @@ function App() {
     }
   };
 
+  const parseMentions = (message) => {
+    const mentionRegex = /@(\w+)/g;
+    const mentions = new Set(); // Use a Set to avoid duplicate agent IDs
+    let match;
+    
+    while ((match = mentionRegex.exec(message)) !== null) {
+      const agentName = match[1].toLowerCase();
+      // `agents` is the state holding your list of available agents
+      const agent = agents.find(a => 
+        a.name.toLowerCase().includes(agentName) || 
+        a.id.toLowerCase().includes(agentName)
+      );
+      if (agent) {
+        mentions.add(agent.id);
+      }
+    }
+    return Array.from(mentions);
+  };
+
+  const addMessageToAgent = (agentId, content, sender, options = {}) => {
+    setAgentMessages(prev => ({
+      ...prev,
+      [agentId]: [...(prev[agentId] || []), {
+        content,
+        sender,
+        timestamp: new Date(),
+        ...options
+      }]
+    }));
+  };
+
+  const openAgentChat = (agentId) => {
+    if (!openChatTabs.includes(agentId)) {
+      setOpenChatTabs(prev => [...prev, agentId]);
+    }
+    setActiveChatTab(agentId);
+  };
+
   const loadModels = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/models`);
@@ -58,17 +100,30 @@ function App() {
   // Initialize WebSocket connection
   useEffect(() => {
     socketRef.current = io(`${WS_BASE_URL}/swarm`); // Use WS_BASE_URL for WebSocket
+    
     socketRef.current.on('swarm_responses', (data) => {
       const responses = data.responses || [];
       setChatMessages((prev) => [...prev, ...responses.map(r => ({ ...r, sender: 'agent' }))]);
     });
+    
+    socketRef.current.on('response_stream_chunk', (data) => {
+      // data should include { agent_id, agent_name, chunk, is_final }
+      addMessageToAgent(data.agent_id, data.chunk, 'agent', { streaming: !data.is_final });
+    
+      // Ensure the agent's tab is open if a response comes in
+      if (!openChatTabs.includes(data.agent_id)) {
+        openAgentChat(data.agent_id);
+      }
+    });
+    
     socketRef.current.on('connect_error', () => {
       addNotification('WebSocket connection failed', 'error');
     });
+    
     return () => {
       socketRef.current?.disconnect();
     };
-  }, []);
+  }, [agents, openChatTabs]); // Add dependencies
 
   const fetchAgentConfig = async (id) => {
     try {
@@ -97,38 +152,38 @@ function App() {
     }, 5000);
   };
 
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      const content = message.trim();
-      setChatMessages(prev => [...prev, { sender: 'user', content }]);
-
-      // Parse @mentions to determine agent IDs
-      const mentionRegex = /@(\w+)/g;
-      const found = content.match(mentionRegex) || [];
-      const agentIds = found
-        .map(m => m.slice(1).toLowerCase())
-        .map(name => {
-          const agent = agents.find(a =>
-            a.name.toLowerCase().replace(/\s+/g, '') === name ||
-            a.id.toLowerCase() === name
-          );
-          return agent ? agent.id : null;
-        })
-        .filter(Boolean);
-
-      socketRef.current?.emit('swarm_message', {
-        message: content,
-        agent_ids: agentIds.length > 0 ? agentIds : [selectedAgent?.id].filter(Boolean)
-      });
-
-      setMessage('');
+  const handleSendMessage = (messageContent) => { // Assume EnhancedMessageInput passes the content
+    if (!messageContent || messageContent.trim() === '') return;
+  
+    const mentions = parseMentions(messageContent);
+    // If there are mentions, they are the primary targets.
+    // If not, the target is the agent in the currently active tab.
+    const targetAgentIds = mentions.length > 0 ? mentions : [activeChatTab || selectedAgent?.id].filter(Boolean);
+  
+    if (targetAgentIds.length === 0) {
+      console.error("No target agent selected or mentioned.");
+      return;
     }
+  
+    // Add the user's message to the conversation of the *active* agent,
+    // or the first mentioned agent if the active tab isn't one of them.
+    const primaryDisplayAgent = targetAgentIds.includes(activeChatTab) ? activeChatTab : targetAgentIds[0];
+    addMessageToAgent(primaryDisplayAgent, messageContent, 'user');
+  
+    // Emit the message to all targeted agents
+    socketRef.current.emit('send_message', {
+      content: messageContent,
+      agent_ids: targetAgentIds,
+      model: selectedModel, // Or model per agent
+    });
+    
+    setMessage('');
   };
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage();
+      handleSendMessage(message);
     }
   };
 
@@ -451,7 +506,7 @@ function App() {
                 />
               </div>
               <button
-                onClick={handleSendMessage}
+                onClick={() => handleSendMessage(message)}
                 className="w-11 h-11 bg-blue-500 text-white rounded-xl flex items-center justify-center hover:bg-blue-600 hover:-translate-y-0.5 transition-all duration-200 shadow-md"
               >
                 <Send className="w-5 h-5" />

@@ -26,6 +26,7 @@ from backend.services.openrouter_service import get_openrouter_service
 from backend.services.mcp_filesystem import get_mcp_filesystem_service
 from backend.services.supermemory_service import get_supermemory_service
 from backend.services.websocket_service import WebSocketService
+from backend.services.agent_service import AgentOrchestrator
 
 # Import orchestrator
 from backend.swarm_orchestrator import SwarmOrchestrator
@@ -54,6 +55,9 @@ logger.info("Initializing services...")
 openrouter = get_openrouter_service()
 mcp_fs = get_mcp_filesystem_service()
 supermemory = get_supermemory_service()
+
+# Initialize AgentOrchestrator
+orchestrator = AgentOrchestrator(openrouter, supermemory)
 
 # Initialize WebSocket service with socketio instance
 websocket_service = None
@@ -223,38 +227,35 @@ def handle_disconnect():
     """Handle client disconnection"""
     logger.info(f'Client disconnected: {request.sid}')
 
+# REPLACE the existing 'send_message' handler with this one
 @socketio.on('send_message', namespace='/swarm')
 def handle_message(data):
-    """Handle incoming messages from clients"""
     try:
-        logger.info(f"Received message from {request.sid}: {data}")
-        
-        message = data.get('content', '')
+        message = data.get('content')
         agent_ids = data.get('agent_ids', [])
-        recipient_id = data.get('recipient_id')
-        model = data.get('model', 'openai/gpt-4o')
+        model = data.get('model', 'openai/gpt-4o')  # Added default model
         
-        # If no agent_ids provided, use recipient_id
-        if not agent_ids and recipient_id:
-            agent_ids = [recipient_id]
-        
-        if not message:
-            emit('error', {'message': 'No message content provided'})
+        # If agent_ids are not explicitly provided by the frontend, parse the message for @mentions
+        if not agent_ids:
+            agent_ids = orchestrator.parse_mentions(message)
+            
+        # If still no agents, fall back to the recipient_id (for single-agent chats)
+        if not agent_ids and data.get('recipient_id'):
+            agent_ids = [data.get('recipient_id')]
+
+        # If no target agent can be determined, send an error back to the client
+        if not agent_ids:
+            emit('response_stream_error', {'error': 'No valid agent specified.'})
             return
-        
-        if websocket_service:
-            # Process message through the WebSocket service
-            websocket_service.handle_user_message(
-                message=message,
-                agent_ids=agent_ids,
-                model=model,
-                session_id=request.sid
+
+        # Route the message to all identified agents via the orchestrator
+        for agent_id in agent_ids:
+            orchestrator.route_message_to_agent(
+                agent_id, message, model, request.sid
             )
-        else:
-            emit('error', {'message': 'WebSocket service not available'})
             
     except Exception as e:
-        logger.error(f"Error handling message: {e}")
+        print(f"Error in handle_message: {str(e)}") # Added for better debugging
         emit('response_stream_error', {'error': str(e)})
 
 @socketio.on('swarm_message', namespace='/swarm')
