@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { 
-  Layers, Settings, Cpu, CheckCircle, AlertTriangle, 
-  MessageSquare, Mail, Code, Calendar, Wrench, Smile,
+  Layers, Settings, Cpu, CheckCircle,
+  MessageSquare, Mail, Code, Smile,
   ChevronDown, Sun, Send
 } from 'lucide-react';
+ cleanup/refactor-dependencies-r1
+import { API_BASE_URL, WS_BASE_URL } from './utils/config'; // Import centralized URLs
+=======
 import { API_BASE_URL, SOCKET_URL } from './config';
+ main
 
 function App() {
   // Core State
@@ -51,13 +55,18 @@ function App() {
       setModelOptions(data.data || []);
     } catch (error) {
       console.error('Error loading models:', error);
+      addNotification('Failed to load AI models', 'error');
     }
   };
 
   // Initialize WebSocket connection
   useEffect(() => {
+ cleanup/refactor-dependencies-r1
+    socketRef.current = io(`${WS_BASE_URL}/swarm`); // Use WS_BASE_URL for WebSocket
+=======
     console.log('Connecting to WebSocket at:', SOCKET_URL);
     socketRef.current = io(SOCKET_URL);
+ main
     socketRef.current.on('swarm_responses', (data) => {
       const responses = data.responses || [];
       setChatMessages((prev) => [...prev, ...responses.map(r => ({ ...r, sender: 'agent' }))]);

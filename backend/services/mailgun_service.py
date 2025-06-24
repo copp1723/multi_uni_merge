@@ -449,34 +449,17 @@ System Monitoring
                 details={"error": str(e)},
                 last_check=datetime.now(timezone.utc).isoformat()
             )
-
-    def test_connection(self) -> bool:
-        """Test the Mailgun API connection"""
-        try:
-            response = requests.get(
-                f"{self.base_url}/{self.domain}",
-                auth=self.auth,
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                logger.info("✅ Mailgun connection test successful")
-                return True
-            else:
-                logger.error(f"❌ Mailgun connection test failed: {response.status_code}")
-                return False
-                
-        except Exception as e:
-            logger.error(f"❌ Mailgun connection test failed: {e}")
-            return False
     
     def get_service_status(self) -> Dict[str, Any]:
         """Get service status information"""
+        import asyncio
         try:
-            is_connected = self.test_connection()
+            # Run the async health check synchronously for status
+            health_result = asyncio.run(self.get_health(use_cache=False))
+            is_connected = health_result.status == ServiceStatus.HEALTHY
             
             return {
-                "status": "healthy" if is_connected else "unhealthy",
+                "status": health_result.status.value,
                 "connected": is_connected,
                 "domain": self.domain,
                 "api_endpoint": self.base_url,

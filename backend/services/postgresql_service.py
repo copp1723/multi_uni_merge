@@ -14,49 +14,20 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.pool import QueuePool
 
 # Import BaseService using relative imports
-from ..utils.service_utils import BaseService, ServiceHealth, ServiceStatus
+# from ..utils.service_utils import BaseService, ServiceHealth, ServiceStatus # BaseService no longer needed here
 
 logger = logging.getLogger(__name__)
 
-class PostgreSQLManager(BaseService):
+class PostgreSQLManager: # Removed BaseService inheritance
     """Manages PostgreSQL connections and configuration"""
     
     def __init__(self, database_url: str):
-        super().__init__("postgresql")  # Initialize BaseService with service name
+        # super().__init__("postgresql")  # Removed BaseService init
         self.database_url = database_url
         self.parsed_url = urlparse(database_url)
         self.connection_params = self._parse_connection_params()
     
-    async def _health_check(self) -> ServiceHealth:
-        """Implement service-specific health check"""
-        try:
-            # Test connection
-            conn = psycopg2.connect(
-                host=self.connection_params["host"],
-                port=self.connection_params["port"],
-                database=self.connection_params["database"],
-                user=self.connection_params["username"],
-                password=self.connection_params["password"],
-            )
-            conn.close()
-            
-            return ServiceHealth(
-                status=ServiceStatus.HEALTHY, 
-                message="Service operational", 
-                details={
-                    "database": self.connection_params["database"],
-                    "host": self.connection_params["host"],
-                    "port": self.connection_params["port"]
-                }, 
-                last_check=datetime.now(timezone.utc).isoformat()
-            )
-        except Exception as e:
-            return ServiceHealth(
-                status=ServiceStatus.UNHEALTHY, 
-                message=f"Connection failed: {str(e)}", 
-                details={"error": str(e)}, 
-                last_check=datetime.now(timezone.utc).isoformat()
-            )
+    # _health_check method removed as this is no longer a registered BaseService
     
     def _parse_connection_params(self) -> Dict[str, Any]:
         """Parse database URL into connection parameters"""
