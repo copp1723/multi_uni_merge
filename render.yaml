@@ -9,8 +9,9 @@ services:
       echo "Current directory: $(pwd)"
       
       echo "📦 Installing minimal Python dependencies..."
-      pip install --upgrade pip
-      pip install -r requirements_clean.txt
+      pip install --upgrade pip setuptools wheel
+      pip cache purge
+      pip install -r requirements_clean.txt --no-cache-dir
       
       echo "🔨 Building React frontend..."
       cd frontend
