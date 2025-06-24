@@ -42,8 +42,13 @@ function App() {
 
   // Initialize socket connection
   useEffect(() => {
+    // Use polling for production compatibility
     socketRef.current = io(API_BASE_URL, {
-      transports: ['websocket', 'polling']
+      transports: ['polling', 'websocket'],
+      upgrade: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
     });
 
     socketRef.current.on('connect', () => {
@@ -521,4 +526,3 @@ function App() {
 }
 
 export default App;
-

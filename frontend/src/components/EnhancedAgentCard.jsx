@@ -90,7 +90,7 @@ const EnhancedAgentCard = ({ agent, isSelected, onSelect, performance, isOnline 
       <div className="flex flex-wrap gap-1 mb-3">
         {agent.capabilities.slice(0, 3).map((capability, index) => (
           <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-            {capability}
+            {typeof capability === 'string' ? capability : capability.name || capability.description || 'Capability'}
           </span>
         ))}
         {agent.capabilities.length > 3 && (
@@ -108,7 +108,7 @@ const EnhancedAgentCard = ({ agent, isSelected, onSelect, performance, isOnline 
             <div className="flex flex-wrap gap-1">
               {agent.capabilities.map((capability, index) => (
                 <span key={index} className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
-                  {capability}
+                  {typeof capability === 'string' ? capability : capability.name || capability.description || 'Capability'}
                 </span>
               ))}
             </div>
