@@ -1,8 +1,8 @@
-# Core - just what we need
+# Core - just what we need, Python 3.11 compatible
 Flask==3.0.0
 Flask-CORS==4.0.0
 Flask-SocketIO==5.3.6
-eventlet==0.33.3
+eventlet==0.35.2
 gunicorn==21.2.0
 requests==2.31.0
 python-socketio==5.10.0

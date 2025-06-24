@@ -10,7 +10,7 @@ services:
       
       echo "📦 Installing minimal Python dependencies..."
       pip install --upgrade pip
-      pip install flask flask-cors flask-socketio eventlet requests gunicorn python-socketio
+      pip install -r requirements_clean.txt
       
       echo "🔨 Building React frontend..."
       cd frontend
@@ -27,7 +27,7 @@ services:
     autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
-        value: 3.13.0
+        value: 3.11.9
       - key: OPENROUTER_API_KEY
         sync: false
       - key: SECRET_KEY
