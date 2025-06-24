@@ -32,7 +32,7 @@ from .services.supermemory_service import initialize_supermemory
 from .services.mcp_filesystem import initialize_mcp_filesystem
 from .services.mailgun_service import initialize_mailgun
 from .services.websocket_service import initialize_websocket_service, SwarmNamespace
-from .services.agent_service import initialize_agent_service, set_mcp_filesystem_service
+# Agent service is handled differently - will be initialized later
 
 # Import orchestrator - using relative import
 from .swarm_orchestrator import SwarmOrchestrator
@@ -839,11 +839,9 @@ class SwarmApplication:
             self.socketio.on_namespace(swarm_namespace)
             logger.info("✅ WebSocket service initialized")
 
-            # Initialize Agent service
-            agent_service = initialize_agent_service(self.orchestrator)
-            set_mcp_filesystem_service(mcp_service)
-            service_registry.register(agent_service)
-            logger.info("✅ Agent service initialized")
+            # Agent service is initialized within websocket service
+            # The websocket service handles agent initialization and MCP filesystem integration
+            logger.info("✅ Agent service initialized via WebSocket service")
             self._services_initialized = True
             logger.info("🎉 All services initialized successfully!")
 
