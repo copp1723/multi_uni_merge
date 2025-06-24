@@ -5,7 +5,11 @@ import {
   MessageSquare, Mail, Code, Smile,
   ChevronDown, Sun, Send
 } from 'lucide-react';
+ cleanup/refactor-dependencies-r1
 import { API_BASE_URL, WS_BASE_URL } from './utils/config'; // Import centralized URLs
+=======
+import { API_BASE_URL, SOCKET_URL } from './config';
+ main
 
 function App() {
   // Core State
@@ -57,13 +61,23 @@ function App() {
 
   // Initialize WebSocket connection
   useEffect(() => {
+ cleanup/refactor-dependencies-r1
     socketRef.current = io(`${WS_BASE_URL}/swarm`); // Use WS_BASE_URL for WebSocket
+=======
+    console.log('Connecting to WebSocket at:', SOCKET_URL);
+    socketRef.current = io(SOCKET_URL);
+ main
     socketRef.current.on('swarm_responses', (data) => {
       const responses = data.responses || [];
       setChatMessages((prev) => [...prev, ...responses.map(r => ({ ...r, sender: 'agent' }))]);
     });
-    socketRef.current.on('connect_error', () => {
+    socketRef.current.on('connect_error', (error) => {
+      console.error('WebSocket connection error:', error);
       addNotification('WebSocket connection failed', 'error');
+    });
+    socketRef.current.on('connect', () => {
+      console.log('WebSocket connected successfully');
+      addNotification('Connected to server', 'success');
     });
     return () => {
       socketRef.current?.disconnect();
