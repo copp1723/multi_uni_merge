@@ -11,7 +11,7 @@ from typing import Dict, Any
 
 from flask_sqlalchemy import SQLAlchemy
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from flask_migrate import Migrate, upgrade
@@ -177,6 +177,10 @@ class SwarmApplication:
             try:
                 return self.app.send_static_file("index.html")
             except Exception:
+                # Try to serve temporary static page
+                static_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static_index.html")
+                if os.path.exists(static_path):
+                    return send_file(static_path)
                 # Fallback to API info if frontend not available
                 return jsonify(
                     format_api_response(
@@ -205,6 +209,23 @@ class SwarmApplication:
                         }
                     )
                 )
+        
+        @self.app.route("/<path:path>", methods=["GET"])
+        def catch_all(path):
+            """Catch-all route for React Router"""
+            # First, try to serve static files (JS, CSS, images)
+            try:
+                return self.app.send_static_file(path)
+            except:
+                # If not a static file, serve index.html for React Router
+                try:
+                    return self.app.send_static_file("index.html")
+                except:
+                    # Fallback to temporary page
+                    static_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static_index.html")
+                    if os.path.exists(static_path):
+                        return send_file(static_path)
+                    return jsonify({"error": "Frontend not available", "path": path}), 404
 
         @self.app.route("/api/health", methods=["GET"])
         @handle_errors("Health check failed")
