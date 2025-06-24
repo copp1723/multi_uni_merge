@@ -47,9 +47,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Initialize global SQLAlchemy instance
-db = SQLAlchemy()
-
 # Global Flask-Migrate instance
 migrate = Migrate()
 

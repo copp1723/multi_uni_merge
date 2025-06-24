@@ -19,10 +19,7 @@ from typing import Any, Dict, List, Optional, Union
 import requests
 
 # Import BaseService for proper service registration
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.service_utils import BaseService, ServiceHealth, ServiceStatus
+from ..utils.service_utils import BaseService, ServiceHealth, ServiceStatus
 
 logger = logging.getLogger(__name__)
 

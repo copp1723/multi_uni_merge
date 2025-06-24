@@ -15,11 +15,7 @@ from flask import current_app, request
 from flask_socketio import Namespace, emit, join_room, leave_room
 
 # Import BaseService for proper service registration
-import sys
-import os
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.service_utils import BaseService, ServiceHealth, ServiceStatus
+from ..utils.service_utils import BaseService, ServiceHealth, ServiceStatus
 
 logger = logging.getLogger(__name__)
 
