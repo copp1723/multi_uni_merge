@@ -41,7 +41,7 @@ done
 
 # Verify installed packages
 echo "📦 Verifying Key Installed Packages:"
-key_packages=("flask" "gunicorn" "psycopg2" "requests" "pydantic")
+key_packages=("flask" "gunicorn" "psycopg2" "requests" "pydantic" "tenacity")
 for package in "${key_packages[@]}"; do
     if pip list | grep -i "$package" > /dev/null 2>&1; then
         version=$(pip list | grep -i "$package" | awk '{print $2}')
@@ -59,6 +59,7 @@ test_imports=(
     "import requests"
     "import pydantic"
     "import gunicorn"
+    "import tenacity"
 )
 
 for import_cmd in "${test_imports[@]}"; do
