@@ -19,6 +19,8 @@ services:
       npm install
       npm run build
       cd ..
+      echo "📁 Verifying frontend build..."
+      ls -la frontend/dist/
       echo "✅ Verifying critical packages..."
       pip list | grep -E "(flask|gunicorn|psycopg2|requests|pydantic)"
       echo "✅ Build completed successfully!"
