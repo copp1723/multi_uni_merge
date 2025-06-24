@@ -4,116 +4,35 @@ services:
     env: python
     region: oregon
     plan: starter
-    # Setup script for debugging and verification
-    preDeployCommand: |
-      chmod +x setup.sh
-      ./setup.sh
-    # Build command with enhanced dependency management
     buildCommand: |
-      echo "🔧 Starting build process..."
+      echo "🔧 Starting CLEAN build process..."
       echo "Current directory: $(pwd)"
-      echo "Directory contents:"
-      ls -la
       
-      echo "📦 Installing Python dependencies..."
+      echo "📦 Installing minimal Python dependencies..."
       pip install --upgrade pip
-      pip install -r requirements.txt
+      pip install flask flask-cors flask-socketio eventlet requests gunicorn python-socketio
       
       echo "🔨 Building React frontend..."
-      echo "Checking frontend directory..."
-      ls -la frontend/
-      
       cd frontend
-      echo "Installing npm dependencies..."
       npm install
-      
-      echo "Running build..."
       npm run build
-      
-      echo "Build complete, checking output..."
+      echo "Frontend build complete"
       ls -la dist/
-      
-      if [ -d "dist/assets" ]; then
-        echo "Assets directory contents:"
-        ls -la dist/assets/
-      fi
-      
+      ls -la dist/assets/
       cd ..
       
-      echo "📁 Verifying frontend build from root..."
-      ls -la frontend/dist/
-      
-      # Ensure static files are accessible
-      if [ -f "frontend/dist/index.html" ]; then
-        echo "✅ index.html found"
-      else
-        echo "❌ ERROR: index.html not found!"
-        exit 1
-      fi
-      
-      echo "✅ Verifying critical packages..."
-      pip list | grep -E "(flask|gunicorn|psycopg2|requests|eventlet|flask-socketio)"
       echo "✅ Build completed successfully!"
-    # Start command with WebSocket support using eventlet
-    # Use app:application which now has all the fixes
-    startCommand: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT --timeout 120 --keep-alive 5 --access-logfile - --error-logfile - --log-level info app:application
-    # Health check endpoint
+    startCommand: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT --timeout 120 app_clean:application
     healthCheckPath: /api/health
-    # Auto-deploy on git push
     autoDeploy: true
-    # Environment variables
     envVars:
-      # Python configuration (updated to 3.13 for compatibility)
       - key: PYTHON_VERSION
         value: 3.13.0
-      - key: FLASK_ENV
-        value: production
-      - key: PYTHONUNBUFFERED
-        value: "1"
-      - key: PYTHONDONTWRITEBYTECODE
-        value: "1"
-      
-      # Database configuration
-      - key: DATABASE_URL
-        fromDatabase:
-          name: swarm-multi-agent-db
-          property: connectionString
-      
-      # Required API Keys (set these in Render dashboard)
       - key: OPENROUTER_API_KEY
         sync: false
-      - key: SUPERMEMORY_API_KEY
-        sync: false
-      - key: SUPERMEMORY_BASE_URL
-        sync: false
-      
-      # Security
       - key: SECRET_KEY
         generateValue: true
-      
-      # Application configuration
-      - key: HOST
-        value: "0.0.0.0"
       - key: PORT
         value: "10000"
-      - key: DEBUG
-        value: "false"
-      
-      # MCP Filesystem configuration
-      - key: MCP_WORKSPACE_PATH
-        value: "/tmp/swarm_workspace"
-      
-      # Optional: Email Service
-      - key: MAILGUN_API_KEY
-        sync: false
-      - key: MAILGUN_DOMAIN
-        sync: false
-      - key: MAILGUN_WEBHOOK_SIGNING_KEY
-        sync: false
 
-databases:
-  - name: swarm-multi-agent-db
-    databaseName: swarm_multi_agent
-    user: swarm_user
-    region: oregon
-    plan: free
+# Removed database for now - can add back later if needed
