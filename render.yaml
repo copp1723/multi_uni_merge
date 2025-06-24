@@ -55,8 +55,8 @@ services:
       pip list | grep -E "(flask|gunicorn|psycopg2|requests|eventlet|flask-socketio)"
       echo "✅ Build completed successfully!"
     # Start command with WebSocket support using eventlet
-    # CRITICAL: Use app_production:application for proper static file serving
-    startCommand: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT --timeout 120 --keep-alive 5 --access-logfile - --error-logfile - --log-level info app_production:application
+    # Use app:application which now has all the fixes
+    startCommand: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT --timeout 120 --keep-alive 5 --access-logfile - --error-logfile - --log-level info app:application
     # Health check endpoint
     healthCheckPath: /api/health
     # Auto-deploy on git push
