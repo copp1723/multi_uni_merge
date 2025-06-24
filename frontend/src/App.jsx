@@ -165,16 +165,7 @@ function App() {
       const response = await fetch(`${API_BASE_URL}/api/models`); // Assuming this endpoint exists
       if (!response.ok) throw new Error(`Failed to fetch models: ${response.status}`);
       const data = await response.json();
- feat/multi-agent-chat-enhancements
-      // Assuming data is an array of model objects like { id: "model-id", name: "Model Name", description: "..." }
-      setModelOptions(data.data || []);
-      if (data.data && data.data.length > 0 && !selectedModel) {
-         // setSelectedModel(data.data[0].id); // Set a default model if none selected
-      }
-    } catch (error) {
-      console.error('Error loading models:', error);
-      // Non-critical, don't necessarily notify user unless models are essential for basic function
-=======
+
       let allModels = data.data || [];
 
       // Ensure QWEN CODER and DEEPSEEK are present
@@ -197,13 +188,7 @@ function App() {
         topModels = [...topModels, ...otherModels.slice(0, remainingSlots)];
       }
 
-      // If we have less than 15 models in total after including required ones,
-      // this will just use all available models that fit, including the required ones.
-      // If we had more than 15 after including required ones (e.g. required were not in top N),
-      // the slice above ensures we don't exceed 15 by taking only `remainingSlots`.
-
       // Remove duplicates if any model was in both required and top N from otherModels
-      // (though current logic should prevent this, good to be safe)
       const uniqueModelNames = new Set();
       const finalModels = [];
       for (const model of topModels) {
@@ -217,7 +202,9 @@ function App() {
       const qwenModel = finalModels.find(m => m.name === "QWEN CODER");
       const deepseekModel = finalModels.find(m => m.name === "DEEPSEEK");
 
-      let sortedModels = finalModels.filter(m => m.name !== "QWEN CODER" && m.name !== "DEEPSEEK");
+      let sortedModels = finalModels.filter(
+        m => m.name !== "QWEN CODER" && m.name !== "DEEPSEEK"
+      );
 
       if (deepseekModel) {
         sortedModels.unshift(deepseekModel);
@@ -229,11 +216,13 @@ function App() {
       // Ensure the list does not exceed 15 models
       setModelOptions(sortedModels.slice(0, 15));
 
+      if (sortedModels.length > 0 && !selectedModel) {
+        // setSelectedModel(sortedModels[0].id); // Set a default model if none selected
+      }
     } catch (error) {
       console.error('Error loading models:', error);
       // Optionally set to empty or default models in case of error
       setModelOptions([]);
- main
     }
   };
 
