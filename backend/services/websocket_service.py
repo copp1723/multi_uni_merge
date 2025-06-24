@@ -173,13 +173,16 @@ class WebSocketService(BaseService):
                         if not agent_config:
                             raise Exception(f"Agent {agent_id} not found")
 
-                        # Prepare messages for the agent
+                        # Import ChatMessage for proper message handling
+                        from .openrouter_service import ChatMessage
+
+                        # Prepare messages for the agent using ChatMessage objects
                         messages = [
-                            {
-                                "role": "system",
-                                "content": agent_config["system_prompt"],
-                            },
-                            {"role": "user", "content": message.content},
+                            ChatMessage(
+                                role="system",
+                                content=agent_config["system_prompt"],
+                            ),
+                            ChatMessage(role="user", content=message.content),
                         ]
 
                         # Add memory context if available
@@ -196,9 +199,11 @@ class WebSocketService(BaseService):
                                             memory_context
                                         )
                                     )
-                                    messages[0][
-                                        "content"
-                                    ] += f"\n\nRelevant context from previous conversations:\n{context_text}"
+                                    # Update the system message content
+                                    messages[0] = ChatMessage(
+                                        role="system",
+                                        content=f"{agent_config['system_prompt']}\n\nRelevant context from previous conversations:\n{context_text}"
+                                    )
                             except Exception as e:
                                 logger.warning(
                                     f"⚠️ Could not retrieve memory context: {e}"

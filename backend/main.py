@@ -426,8 +426,7 @@ class SwarmApplication:
                 raise SwarmError(f"Agent {agent_id} not found", status_code=404)
             
             try:
-                from .services.openrouter_service import get_openrouter_service
-                
+                            from .services.openrouter_service import get_openrouter_service, ChatMessage
                 openrouter = get_openrouter_service()
                 if not openrouter:
                     raise SwarmError("OpenRouter service not initialized")
@@ -435,10 +434,10 @@ class SwarmApplication:
                 # Prepare the prompt based on agent type
                 system_prompt = agent_config.get("system_prompt", "")
                 
-                # Create transformation prompt
+                # Create transformation prompt using ChatMessage objects
                 messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Please transform the following text:\n\n{text}"}
+                    ChatMessage(role="system", content=system_prompt),
+                    ChatMessage(role="user", content=f"Please transform the following text:\n\n{text}")
                 ]
                 
                 # Get current model from agent config
@@ -452,7 +451,8 @@ class SwarmApplication:
                     max_tokens=1000
                 )
                 
-                transformed_text = response.strip()
+                # Extract content from ChatResponse object
+                transformed_text = response.content
                 
                 # Store transformation in memory if Supermemory is available
                 try:
