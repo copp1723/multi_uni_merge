@@ -52,10 +52,11 @@ services:
       fi
       
       echo "✅ Verifying critical packages..."
-      pip list | grep -E "(flask|gunicorn|psycopg2|requests)"
+      pip list | grep -E "(flask|gunicorn|psycopg2|requests|eventlet|flask-socketio)"
       echo "✅ Build completed successfully!"
-    # Start command with enhanced logging and timeout
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --access-logfile - --error-logfile - --log-level info app:app
+    # Start command with WebSocket support using eventlet
+    # CRITICAL: Use wsgi:application to get the SocketIO instance
+    startCommand: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT --timeout 120 --keep-alive 5 --access-logfile - --error-logfile - --log-level debug wsgi:application
     # Health check endpoint
     healthCheckPath: /api/health
     # Auto-deploy on git push
