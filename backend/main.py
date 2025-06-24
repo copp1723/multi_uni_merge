@@ -274,38 +274,50 @@ class SwarmApplication:
         def health_check():
             """Comprehensive health check endpoint"""
             try:
-                # Get system health from service registry
-                system_health = asyncio.run(service_registry.get_system_health())
-
-                # Add configuration validation
-                missing_configs = self._get_missing_configs()
-
-                return jsonify(
-                    format_api_response(
-                        {
-                            "system": system_health,
-                            "configuration": {
-                                "valid": len(missing_configs) == 0,
-                                "missing_configs": missing_configs,
-                            },
-                            "services_initialized": self._services_initialized,
-                            "version": "3.0.0",
-                        }
-                    )
-                )
-
+                # Simple health check for services
+                health_data = {
+                    "mcp_filesystem": "not_configured",
+                    "supermemory": "not_configured",
+                    "openrouter": "not_configured",
+                    "version": "3.0.0"
+                }
+                
+                # Check if MCP filesystem service is available
+                try:
+                    from .services.mcp_filesystem import get_mcp_filesystem_service
+                    mcp_fs = get_mcp_filesystem_service()
+                    if mcp_fs:
+                        health_data["mcp_filesystem"] = "healthy"
+                except:
+                    pass
+                
+                # Check if Supermemory service is available
+                try:
+                    from .services.supermemory_service import get_supermemory_service
+                    supermemory = get_supermemory_service()
+                    if supermemory:
+                        health_data["supermemory"] = "healthy"
+                except:
+                    pass
+                
+                # Check if OpenRouter service is available
+                try:
+                    from .services.openrouter_service import get_openrouter_service
+                    openrouter = get_openrouter_service()
+                    if openrouter:
+                        health_data["openrouter"] = "healthy"
+                except:
+                    pass
+                
+                return jsonify({
+                    "status": "success",
+                    "data": health_data
+                })
             except Exception as e:
-                logger.error(f"Health check failed: {e}")
-                return (
-                    jsonify(
-                        format_api_response(
-                            data={"error": str(e)},
-                            status="error",
-                            message="Health check failed",
-                        )
-                    ),
-                    500,
-                )
+                return jsonify({
+                    "status": "error",
+                    "message": str(e)
+                }), 500
 
         @self.app.route("/api/models", methods=["GET"])
         @handle_errors("Failed to get models")
@@ -313,12 +325,21 @@ class SwarmApplication:
             """Retrieve available AI models from OpenRouter"""
             from .services.openrouter_service import get_openrouter_service
 
-            openrouter = get_openrouter_service()
-            if not openrouter:
-                raise SwarmError("OpenRouter service not initialized")
+            try:
+                openrouter = get_openrouter_service()
+                if not openrouter:
+                    raise SwarmError("OpenRouter service not initialized")
 
-            models = [model.__dict__ for model in openrouter.get_available_models()]
-            return jsonify(format_api_response(models))
+                models = openrouter.get_available_models()
+                return jsonify({
+                    "status": "success",
+                    "data": models
+                })
+            except Exception as e:
+                return jsonify({
+                    "status": "error",
+                    "message": str(e)
+                }), 500
 
         @self.app.route("/api/system/status", methods=["GET"])
         @handle_errors("System status check failed")
@@ -395,83 +416,44 @@ class SwarmApplication:
         @handle_errors("Transform failed")
         def transform_text():
             """Transform text using specified agent"""
-            data = request.get_json() or {}
-            text = data.get("text", "").strip()
-            agent_id = data.get("agent_id")
-            
-            if not text:
-                raise SwarmError("No text provided for transformation", status_code=400)
-            
-            if not agent_id:
-                raise SwarmError("No agent specified for transformation", status_code=400)
-            
-            if not self.orchestrator:
-                raise SwarmError("Orchestrator not initialized")
-            
-            # Get agent configuration
-            agent_config = self.orchestrator.get_agent_config(agent_id)
-            if not agent_config:
-                raise SwarmError(f"Agent {agent_id} not found", status_code=404)
-            
             try:
+                data = request.get_json() or {}
+                text = data.get("text", "").strip()
+                agent_id = data.get("agent_id", "communication_agent")
+                model = data.get("model", "openai/gpt-4o")
+                
+                if not text:
+                    raise SwarmError("No text provided for transformation", status_code=400)
+                
                 from .services.openrouter_service import get_openrouter_service
+                from .services.supermemory_service import get_supermemory_service
                 
                 openrouter = get_openrouter_service()
+                supermemory = get_supermemory_service()
+                
                 if not openrouter:
                     raise SwarmError("OpenRouter service not initialized")
                 
-                # Prepare the prompt based on agent type
-                system_prompt = agent_config.get("system_prompt", "")
+                # Use openrouter to transform the text
+                response = openrouter.transform_text(text, agent_id, model)
                 
-                # Create transformation prompt
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Please transform the following text:\n\n{text}"}
-                ]
+                # Save interaction to supermemory
+                if supermemory:
+                    supermemory.save_interaction(agent_id, text, response)
                 
-                # Get current model from agent config
-                model = agent_config.get("current_model", "openai/gpt-3.5-turbo")
-                
-                # Generate transformation
-                response = openrouter.chat_completion(
-                    messages=messages,
-                    model=model,
-                    temperature=0.7,
-                    max_tokens=1000
-                )
-                
-                transformed_text = response.strip()
-                
-                # Store transformation in memory if Supermemory is available
-                try:
-                    from .services.supermemory_service import get_supermemory_service
-                    supermemory = get_supermemory_service()
-                    if supermemory:
-                        supermemory.store_memory(
-                            f"Transformation by {agent_config['name']}: {text[:50]}... -> {transformed_text[:50]}...",
-                            metadata={
-                                "type": "transformation",
-                                "agent_id": agent_id,
-                                "agent_name": agent_config['name'],
-                                "original_length": len(text),
-                                "transformed_length": len(transformed_text)
-                            }
-                        )
-                except Exception as e:
-                    logger.warning(f"Failed to store transformation in memory: {e}")
-                
-                return jsonify(format_api_response({
-                    "original_text": text,
-                    "transformed_text": transformed_text,
-                    "agent_id": agent_id,
-                    "agent_name": agent_config['name'],
-                    "model_used": model,
-                    "timestamp": datetime.now(timezone.utc).isoformat()
-                }))
-                
+                return jsonify({
+                    "status": "success",
+                    "data": {
+                        "transformed_text": response,
+                        "agent_id": agent_id,
+                        "model_used": model
+                    }
+                })
             except Exception as e:
-                logger.error(f"Transform failed: {e}")
-                raise SwarmError(f"Transform failed: {str(e)}")
+                return jsonify({
+                    "status": "error",
+                    "message": str(e)
+                }), 500
 
     def _register_diagnostic_routes(self):
         """Register diagnostic and test API routes (only in DEBUG mode)"""

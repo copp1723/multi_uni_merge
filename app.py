@@ -74,21 +74,21 @@ def serve_assets(filename):
         logger.error(f"Error serving asset {filename}: {e}")
         return f"Error serving asset: {e}", 500
 
-# Catch-all for React Router
-@app.route('/<path:path>', methods=['GET'])
-def catch_all(path):
-    """Serve index.html for all non-API routes"""
-    # Skip API and socket.io routes
-    if path.startswith(('api/', 'socket.io')):
-        return "Not found", 404
-    
-    # Try to serve static file if it exists
-    file_path = FRONTEND_DIST / path
-    if file_path.exists() and file_path.is_file():
-        return send_file(str(file_path))
-    
-    # Otherwise serve index.html for client-side routing
-    return send_from_directory(str(FRONTEND_DIST), 'index.html')
+# Catch-all for React Router - Commented out because backend/main.py already defines this
+# @app.route('/<path:path>', methods=['GET'])
+# def catch_all(path):
+#     """Serve index.html for all non-API routes"""
+#     # Skip API and socket.io routes
+#     if path.startswith(('api/', 'socket.io')):
+#         return "Not found", 404
+#     
+#     # Try to serve static file if it exists
+#     file_path = FRONTEND_DIST / path
+#     if file_path.exists() and file_path.is_file():
+#         return send_file(str(file_path))
+#     
+#     # Otherwise serve index.html for client-side routing
+#     return send_from_directory(str(FRONTEND_DIST), 'index.html')
 
 # Debug endpoint
 @app.route('/api/debug/static', methods=['GET'])
