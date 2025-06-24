@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: swarm-multi-agent-system
+    name: multi-uni-merge
     env: python
     region: oregon
     plan: starter
@@ -45,7 +45,7 @@ services:
       # Database configuration
       - key: DATABASE_URL
         fromDatabase:
-          name: swarm-multi-agent-db
+          name: multi-uni-merge-db
           property: connectionString
       
       # Required API Keys (set these in Render dashboard)
@@ -81,8 +81,8 @@ services:
         sync: false
 
 databases:
-  - name: swarm-multi-agent-db
-    databaseName: swarm_multi_agent
-    user: swarm_user
+  - name: multi-uni-merge-db
+    databaseName: multi_uni_merge
+    user: multi_user
     region: oregon
     plan: free
