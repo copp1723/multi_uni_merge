@@ -91,11 +91,34 @@ class SwarmApplication:
 
     def create_app(self) -> Flask:
         """Create and configure Flask application"""
-        # Serve static files from frontend dist directory
-        frontend_dist_path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "frontend", "dist"
-        )
-        app = Flask(__name__, static_folder=frontend_dist_path, static_url_path="")
+        # Find the project root directory more reliably
+        # Start from the current file and go up until we find the frontend directory
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = current_dir
+        
+        # Go up directories until we find the one containing 'frontend'
+        while not os.path.exists(os.path.join(project_root, "frontend")) and project_root != "/":
+            project_root = os.path.dirname(project_root)
+        
+        # Check if dist is in frontend or root directory
+        frontend_dist_path = os.path.join(project_root, "frontend", "dist")
+        root_dist_path = os.path.join(project_root, "dist")
+        
+        # Use whichever exists
+        if os.path.exists(frontend_dist_path):
+            dist_path = frontend_dist_path
+        elif os.path.exists(root_dist_path):
+            dist_path = root_dist_path
+        else:
+            dist_path = frontend_dist_path  # fallback
+        
+        logger.info(f"Project root: {project_root}")
+        logger.info(f"Frontend dist path: {frontend_dist_path}")
+        logger.info(f"Root dist path: {root_dist_path}")
+        logger.info(f"Using dist path: {dist_path}")
+        logger.info(f"Dist exists: {os.path.exists(dist_path)}")
+        
+        app = Flask(__name__, static_folder=dist_path, static_url_path="")
 
         # Configure CORS
         CORS(app, origins="*", allow_headers=["Content-Type", "Authorization"])
@@ -221,18 +244,29 @@ class SwarmApplication:
         @self.app.route("/<path:path>", methods=["GET"])
         def catch_all(path):
             """Catch-all route for React Router"""
+            logger.info(f"Catch-all route hit for path: {path}")
+            
             # First, try to serve static files (JS, CSS, images)
             try:
+                logger.info(f"Attempting to serve static file: {path}")
                 return self.app.send_static_file(path)
-            except:
+            except Exception as e:
+                logger.error(f"Failed to serve static file {path}: {e}")
+                
                 # If not a static file, serve index.html for React Router
                 try:
+                    logger.info("Falling back to serve index.html")
                     return self.app.send_static_file("index.html")
-                except:
+                except Exception as e2:
+                    logger.error(f"Failed to serve index.html: {e2}")
+                    
                     # Fallback to temporary page
                     static_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static_index.html")
                     if os.path.exists(static_path):
+                        logger.info("Serving static_index.html fallback")
                         return send_file(static_path)
+                    
+                    logger.error(f"No fallback available for path: {path}")
                     return jsonify({"error": "Frontend not available", "path": path}), 404
 
         @self.app.route("/api/health", methods=["GET"])
