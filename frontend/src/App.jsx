@@ -3,9 +3,15 @@ import { io } from 'socket.io-client';
 import { 
   Layers, Settings, Cpu, CheckCircle,
   MessageSquare, Mail, Code, Smile,
-  ChevronDown, Sun, Send
+  ChevronDown, Sun
 } from 'lucide-react';
 import { API_BASE_URL, WS_BASE_URL } from './utils/config'; // Import centralized URLs
+
+// Enhanced UI Components
+import EnhancedAgentCard from './components/EnhancedAgentCard';
+import EnhancedMessage from './components/EnhancedMessage';
+import EnhancedMessageInput from './components/EnhancedMessageInput';
+import ConversationHistory from './components/ConversationHistory';
 
 function App() {
   // Core State
@@ -18,18 +24,49 @@ function App() {
   const [selectedModel, setSelectedModel] = useState('GPT-4o');
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [modelOptions, setModelOptions] = useState([]);
-  // WebSocket state
-  const [openChatTabs, setOpenChatTabs] = useState([]);
-  const [activeChatTab, setActiveChatTab] = useState(null);
-  const [agentMessages, setAgentMessages] = useState({});
   const [transformText, setTransformText] = useState('');
   const [isTransforming, setIsTransforming] = useState(false);
+  
+  // Enhanced UI State
+  const [agentPerformance, setAgentPerformance] = useState({
+    'cathy': { score: 96, avg_response_time: 1250, success_rate: 96.8, tasks_completed: 147 },
+    'coder': { score: 94, avg_response_time: 2100, success_rate: 94.2, tasks_completed: 89 },
+    'creative': { score: 98, avg_response_time: 890, success_rate: 98.1, tasks_completed: 203 },
+    'dataminer': { score: 92, avg_response_time: 3200, success_rate: 92.5, tasks_completed: 78 },
+    'researcher': { score: 97, avg_response_time: 1890, success_rate: 97.3, tasks_completed: 156 },
+    'communication_agent': { score: 99, avg_response_time: 1100, success_rate: 99.1, tasks_completed: 234 }
+  });
+  const [conversationHistory, setConversationHistory] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Load agents on mount
   useEffect(() => {
     loadAgents();
     loadModels();
+    loadConversationHistory();
   }, []);
+  
+  // Load conversation history from localStorage
+  const loadConversationHistory = () => {
+    try {
+      const saved = localStorage.getItem('conversationHistory');
+      if (saved) {
+        setConversationHistory(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.error('Failed to load conversation history:', error);
+    }
+  };
+  
+  // Save conversation history to localStorage
+  const saveConversationHistory = (messages) => {
+    try {
+      localStorage.setItem('conversationHistory', JSON.stringify(messages));
+      setConversationHistory(messages);
+    } catch (error) {
+      console.error('Failed to save conversation history:', error);
+    }
+  };
 
   useEffect(() => {
     if (selectedAgent) {
@@ -48,44 +85,6 @@ function App() {
     }
   };
 
-  const parseMentions = (message) => {
-    const mentionRegex = /@(\w+)/g;
-    const mentions = new Set(); // Use a Set to avoid duplicate agent IDs
-    let match;
-    
-    while ((match = mentionRegex.exec(message)) !== null) {
-      const agentName = match[1].toLowerCase();
-      // `agents` is the state holding your list of available agents
-      const agent = agents.find(a => 
-        a.name.toLowerCase().includes(agentName) || 
-        a.id.toLowerCase().includes(agentName)
-      );
-      if (agent) {
-        mentions.add(agent.id);
-      }
-    }
-    return Array.from(mentions);
-  };
-
-  const addMessageToAgent = (agentId, content, sender, options = {}) => {
-    setAgentMessages(prev => ({
-      ...prev,
-      [agentId]: [...(prev[agentId] || []), {
-        content,
-        sender,
-        timestamp: new Date(),
-        ...options
-      }]
-    }));
-  };
-
-  const openAgentChat = (agentId) => {
-    if (!openChatTabs.includes(agentId)) {
-      setOpenChatTabs(prev => [...prev, agentId]);
-    }
-    setActiveChatTab(agentId);
-  };
-
   const loadModels = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/models`);
@@ -100,30 +99,30 @@ function App() {
   // Initialize WebSocket connection
   useEffect(() => {
     socketRef.current = io(`${WS_BASE_URL}/swarm`); // Use WS_BASE_URL for WebSocket
-    
     socketRef.current.on('swarm_responses', (data) => {
       const responses = data.responses || [];
-      setChatMessages((prev) => [...prev, ...responses.map(r => ({ ...r, sender: 'agent' }))]);
+      const enhancedResponses = responses.map(r => ({
+        id: Date.now() + Math.random(),
+        sender_type: 'agent',
+        content: r.content || r.message || r.response,
+        agent_name: r.agent_name || r.name || 'Agent',
+        timestamp: new Date().toISOString(),
+        attachments: r.attachments || []
+      }));
+      
+      const updatedMessages = [...chatMessages, ...enhancedResponses];
+      setChatMessages(updatedMessages);
+      saveConversationHistory(updatedMessages);
+      setIsLoading(false);
     });
-    
-    socketRef.current.on('response_stream_chunk', (data) => {
-      // data should include { agent_id, agent_name, chunk, is_final }
-      addMessageToAgent(data.agent_id, data.chunk, 'agent', { streaming: !data.is_final });
-    
-      // Ensure the agent's tab is open if a response comes in
-      if (!openChatTabs.includes(data.agent_id)) {
-        openAgentChat(data.agent_id);
-      }
-    });
-    
     socketRef.current.on('connect_error', () => {
       addNotification('WebSocket connection failed', 'error');
+      setIsLoading(false);
     });
-    
     return () => {
       socketRef.current?.disconnect();
     };
-  }, [agents, openChatTabs]); // Add dependencies
+  }, [chatMessages]); // Added chatMessages as dependency to access current state
 
   const fetchAgentConfig = async (id) => {
     try {
@@ -152,40 +151,51 @@ function App() {
     }, 5000);
   };
 
-  const handleSendMessage = (messageContent) => { // Assume EnhancedMessageInput passes the content
-    if (!messageContent || messageContent.trim() === '') return;
-  
-    const mentions = parseMentions(messageContent);
-    // If there are mentions, they are the primary targets.
-    // If not, the target is the agent in the currently active tab.
-    const targetAgentIds = mentions.length > 0 ? mentions : [activeChatTab || selectedAgent?.id].filter(Boolean);
-  
-    if (targetAgentIds.length === 0) {
-      console.error("No target agent selected or mentioned.");
-      return;
-    }
-  
-    // Add the user's message to the conversation of the *active* agent,
-    // or the first mentioned agent if the active tab isn't one of them.
-    const primaryDisplayAgent = targetAgentIds.includes(activeChatTab) ? activeChatTab : targetAgentIds[0];
-    addMessageToAgent(primaryDisplayAgent, messageContent, 'user');
-  
-    // Emit the message to all targeted agents
-    socketRef.current.emit('send_message', {
-      content: messageContent,
-      agent_ids: targetAgentIds,
-      model: selectedModel, // Or model per agent
-    });
+  const handleSendMessage = (messageData) => {
+    // Handle both old format (direct call) and new format (from EnhancedMessageInput)
+    const content = typeof messageData === 'string' ? messageData : messageData?.content || message.trim();
+    const mentions = messageData?.mentions || [];
+    const attachments = messageData?.attachments || [];
     
-    setMessage('');
+    if (content.trim() || attachments.length > 0) {
+      const newMessage = {
+        id: Date.now(),
+        sender_type: 'user',
+        content,
+        mentions,
+        attachments,
+        timestamp: new Date().toISOString()
+      };
+      
+      const updatedMessages = [...chatMessages, newMessage];
+      setChatMessages(updatedMessages);
+      saveConversationHistory(updatedMessages);
+
+      // Parse @mentions to determine agent IDs
+      const mentionRegex = /@(\w+)/g;
+      const found = content.match(mentionRegex) || [];
+      const agentIds = found
+        .map(m => m.slice(1).toLowerCase())
+        .map(name => {
+          const agent = agents.find(a =>
+            a.name.toLowerCase().replace(/\s+/g, '') === name ||
+            a.id.toLowerCase() === name
+          );
+          return agent ? agent.id : null;
+        })
+        .filter(Boolean);
+
+      setIsLoading(true);
+      socketRef.current?.emit('swarm_message', {
+        message: content,
+        agent_ids: agentIds.length > 0 ? agentIds : [selectedAgent?.id].filter(Boolean)
+      });
+
+      setMessage('');
+    }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage(message);
-    }
-  };
+  // handleKeyPress removed - now handled by EnhancedMessageInput
 
   const getAgentIcon = (agentName) => {
     const iconMap = {
@@ -311,42 +321,21 @@ function App() {
           <div className="space-y-2">
             {agents.length > 0 ? (
               agents.map((agent) => {
-                const IconComponent = getAgentIcon(agent.name);
                 const isSelected = selectedAgent?.id === agent.id;
                 
                 return (
-                  <div
+                  <EnhancedAgentCard
                     key={agent.id}
-                    className={`flex items-center p-3.5 rounded-lg cursor-pointer transition-all duration-200 border ${
-                      isSelected 
-                        ? 'bg-blue-500 border-blue-500 text-white shadow-md' 
-                        : 'bg-white border-gray-100 hover:border-blue-200 hover:shadow-sm hover:-translate-y-0.5'
-                    }`}
-                    onClick={() => setSelectedAgent(agent)}
-                  >
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3.5 ${
-                      isSelected ? 'bg-white/20' : 'bg-gray-100'
-                    }`}>
-                      <IconComponent className={`w-5 h-5 ${
-                        isSelected ? 'text-white' : 'text-gray-600'
-                      }`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className={`text-sm font-semibold ${
-                        isSelected ? 'text-white' : 'text-gray-900'
-                      }`}>
-                        {agent.name}
-                      </div>
-                      <div className={`text-xs ${
-                        isSelected ? 'text-white/80' : 'text-gray-500'
-                      } truncate`}>
-                        {agent.role}
-                      </div>
-                    </div>
-                    <div className={`w-2 h-2 rounded-full ${
-                      agent.status === 'idle' ? 'bg-green-400' : 'bg-yellow-400'
-                    } ${isSelected ? '' : 'opacity-60'}`}></div>
-                  </div>
+                    agent={{
+                      ...agent,
+                      capabilities: agent.capabilities || ['Multi-purpose AI', 'Text Processing', 'Task Automation'],
+                      collaboration_style: agent.collaboration_style || 'Collaborative and responsive'
+                    }}
+                    isSelected={isSelected}
+                    onSelect={() => setSelectedAgent(agent)}
+                    performance={agentPerformance[agent.id]}
+                    isOnline={agent.status === 'idle' || agent.status === 'active'}
+                  />
                 );
               })
             ) : (
@@ -475,44 +464,27 @@ function App() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col w-full p-4 overflow-y-auto space-y-4">
-              {chatMessages.map((msg, idx) => (
-                <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`px-3 py-2 rounded-lg max-w-xl break-words ${msg.sender === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-900'}`}>
-                    {msg.agent_name && <strong className="mr-2">{msg.agent_name}:</strong>}
-                    {msg.content}
-                  </div>
-                </div>
-              ))}
-              {chatMessages.length === 0 && (
-                <div className="text-center text-gray-400">Start chatting with {selectedAgent.name}. Use @mentions to involve other agents.</div>
+            <div className="flex flex-col w-full p-4 overflow-y-auto">
+              {chatMessages.length > 0 ? (
+                <ConversationHistory 
+                  messages={chatMessages} 
+                  currentUser="user" 
+                />
+              ) : (
+                <div className="text-center text-gray-400 mt-8">Start chatting with {selectedAgent.name}. Use @mentions to involve other agents.</div>
               )}
             </div>
           )}
         </div>
 
-        {/* Message Input */}
+        {/* Enhanced Message Input */}
         {selectedAgent && (
-          <div className="p-5 bg-white border-t border-gray-200">
-            <div className="flex gap-3 items-end">
-              <div className="flex-1">
-                <textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Type your message... Use @ to mention other agents"
-                  className="w-full min-h-[44px] max-h-[120px] px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl resize-none focus:outline-none focus:border-blue-500 focus:bg-white transition-colors text-sm"
-                  rows="1"
-                />
-              </div>
-              <button
-                onClick={() => handleSendMessage(message)}
-                className="w-11 h-11 bg-blue-500 text-white rounded-xl flex items-center justify-center hover:bg-blue-600 hover:-translate-y-0.5 transition-all duration-200 shadow-md"
-              >
-                <Send className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
+          <EnhancedMessageInput
+            onSendMessage={handleSendMessage}
+            agents={agents}
+            isLoading={isLoading}
+            placeholder={`Type your message to ${selectedAgent.name}... Use @ to mention other agents`}
+          />
         )}
 
         {/* Notifications */}
