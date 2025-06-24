@@ -426,7 +426,7 @@ class SwarmApplication:
                 raise SwarmError(f"Agent {agent_id} not found", status_code=404)
             
             try:
-                            from .services.openrouter_service import get_openrouter_service, ChatMessage
+                from .services.openrouter_service import get_openrouter_service, ChatMessage
                 openrouter = get_openrouter_service()
                 if not openrouter:
                     raise SwarmError("OpenRouter service not initialized")
