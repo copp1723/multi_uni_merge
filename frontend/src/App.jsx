@@ -1,139 +1,235 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
+import { EnhancedAgentCard, EnhancedMessage, EnhancedMessageInput } from './components/EnhancedComponents';
 import { 
-  Layers, Settings, Cpu, CheckCircle,
-  MessageSquare, Mail, Code, Smile,
-  ChevronDown, Sun, Send
+  Bot, Users, MessageSquare, Settings, Search, Filter, Star, 
+  Clock, Activity, TrendingUp, Zap, Brain, Target, Crown,
+  Bell, BellOff, Sun, Moon, Maximize2, Minimize2, RefreshCw,
+  Sidebar, Menu, Home, Inbox, Calendar, FileText, BarChart3,
+  Wifi, WifiOff, Signal, Battery, Monitor, Cpu, HardDrive
 } from 'lucide-react';
-import { API_BASE_URL, WS_BASE_URL } from './utils/config'; // Import centralized URLs
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 function App() {
   // Core State
   const [agents, setAgents] = useState([]);
-  const [selectedAgent, setSelectedAgent] = useState(null);
-  const [message, setMessage] = useState('');
+  const [conversations, setConversations] = useState([]);
+  const [currentConversation, setCurrentConversation] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [selectedAgents, setSelectedAgents] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('disconnected');
+  
+  // UI State
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [chatMessages, setChatMessages] = useState([]);
+  const [systemStats, setSystemStats] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  
+  // Performance State
+  const [agentPerformance, setAgentPerformance] = useState({});
+  const [systemHealth, setSystemHealth] = useState(null);
+  const [responseTime, setResponseTime] = useState(0);
+  
+  // Refs
   const socketRef = useRef(null);
-  const [selectedModel, setSelectedModel] = useState('GPT-4o');
-  const [showModelDropdown, setShowModelDropdown] = useState(false);
-  const [modelOptions, setModelOptions] = useState([]);
-  // WebSocket state
-  const [openChatTabs, setOpenChatTabs] = useState([]);
-  const [activeChatTab, setActiveChatTab] = useState(null);
-  const [agentMessages, setAgentMessages] = useState({});
-  const [transformText, setTransformText] = useState('');
-  const [isTransforming, setIsTransforming] = useState(false);
+  const messagesEndRef = useRef(null);
+  const performanceIntervalRef = useRef(null);
 
-  // Load agents on mount
+  // Initialize socket connection
   useEffect(() => {
-    loadAgents();
-    loadModels();
+    socketRef.current = io(API_BASE_URL, {
+      transports: ['websocket', 'polling']
+    });
+
+    socketRef.current.on('connect', () => {
+      setConnectionStatus('connected');
+      console.log('Connected to server');
+    });
+
+    socketRef.current.on('disconnect', () => {
+      setConnectionStatus('disconnected');
+      console.log('Disconnected from server');
+    });
+
+    socketRef.current.on('message_response', (data) => {
+      setMessages(prev => [...prev, data.message]);
+      setIsLoading(false);
+    });
+
+    socketRef.current.on('agent_status_update', (data) => {
+      setAgents(prev => prev.map(agent => 
+        agent.id === data.agent_id 
+          ? { ...agent, status: data.status }
+          : agent
+      ));
+    });
+
+    socketRef.current.on('performance_update', (data) => {
+      setAgentPerformance(prev => ({
+        ...prev,
+        [data.agent_id]: data.metrics
+      }));
+    });
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
   }, []);
 
+  // Load initial data
   useEffect(() => {
-    if (selectedAgent) {
-      fetchAgentConfig(selectedAgent.id);
-    }
-  }, [selectedAgent]);
+    loadAgents();
+    loadConversations();
+    startPerformanceMonitoring();
+  }, []);
+
+  // Auto-scroll to bottom of messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Performance monitoring
+  const startPerformanceMonitoring = () => {
+    performanceIntervalRef.current = setInterval(async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/monitoring/health`);
+        const health = await response.json();
+        setSystemHealth(health);
+        
+        const metricsResponse = await fetch(`${API_BASE_URL}/api/monitoring/metrics`);
+        const metrics = await metricsResponse.json();
+        setResponseTime(metrics.performance.avg_response_time);
+      } catch (error) {
+        console.error('Performance monitoring error:', error);
+      }
+    }, 10000); // Update every 10 seconds
+
+    return () => {
+      if (performanceIntervalRef.current) {
+        clearInterval(performanceIntervalRef.current);
+      }
+    };
+  };
 
   const loadAgents = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/agents`);
       const data = await response.json();
-      setAgents(data.data || []);
+      setAgents(data.data || []); // API returns data in 'data' field, not 'agents'
     } catch (error) {
       console.error('Error loading agents:', error);
       addNotification('Failed to load agents', 'error');
     }
   };
 
-  const parseMentions = (message) => {
-    const mentionRegex = /@(\w+)/g;
-    const mentions = new Set(); // Use a Set to avoid duplicate agent IDs
-    let match;
-    
-    while ((match = mentionRegex.exec(message)) !== null) {
-      const agentName = match[1].toLowerCase();
-      // `agents` is the state holding your list of available agents
-      const agent = agents.find(a => 
-        a.name.toLowerCase().includes(agentName) || 
-        a.id.toLowerCase().includes(agentName)
-      );
-      if (agent) {
-        mentions.add(agent.id);
-      }
-    }
-    return Array.from(mentions);
+  const loadConversations = async () => {
+    // Conversations endpoint not implemented yet, using empty array
+    setConversations([]);
   };
 
-  const addMessageToAgent = (agentId, content, sender, options = {}) => {
-    setAgentMessages(prev => ({
-      ...prev,
-      [agentId]: [...(prev[agentId] || []), {
-        content,
-        sender,
-        timestamp: new Date(),
-        ...options
-      }]
-    }));
-  };
-
-  const openAgentChat = (agentId) => {
-    if (!openChatTabs.includes(agentId)) {
-      setOpenChatTabs(prev => [...prev, agentId]);
-    }
-    setActiveChatTab(agentId);
-  };
-
-  const loadModels = async () => {
+  const loadMessages = async (conversationId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/models`);
+      const response = await fetch(`${API_BASE_URL}/api/conversations/${conversationId}/messages`);
       const data = await response.json();
-      setModelOptions(data.data || []);
+      setMessages(data.messages || []);
     } catch (error) {
-      console.error('Error loading models:', error);
-      addNotification('Failed to load AI models', 'error');
+      console.error('Error loading messages:', error);
+      addNotification('Failed to load messages', 'error');
     }
   };
 
-  // Initialize WebSocket connection
-  useEffect(() => {
-    socketRef.current = io(`${WS_BASE_URL}/swarm`); // Use WS_BASE_URL for WebSocket
-    
-    socketRef.current.on('swarm_responses', (data) => {
-      const responses = data.responses || [];
-      setChatMessages((prev) => [...prev, ...responses.map(r => ({ ...r, sender: 'agent' }))]);
-    });
-    
-    socketRef.current.on('response_stream_chunk', (data) => {
-      // data should include { agent_id, agent_name, chunk, is_final }
-      addMessageToAgent(data.agent_id, data.chunk, 'agent', { streaming: !data.is_final });
-    
-      // Ensure the agent's tab is open if a response comes in
-      if (!openChatTabs.includes(data.agent_id)) {
-        openAgentChat(data.agent_id);
-      }
-    });
-    
-    socketRef.current.on('connect_error', () => {
-      addNotification('WebSocket connection failed', 'error');
-    });
-    
-    return () => {
-      socketRef.current?.disconnect();
+  const createNewConversation = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/conversations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `New Conversation ${new Date().toLocaleString()}`,
+          agent_ids: selectedAgents.map(agent => agent.id)
+        })
+      });
+      
+      const data = await response.json();
+      const newConversation = data.conversation;
+      
+      setConversations(prev => [newConversation, ...prev]);
+      setCurrentConversation(newConversation);
+      setMessages([]);
+      
+      addNotification('New conversation created', 'success');
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      addNotification('Failed to create conversation', 'error');
+    }
+  };
+
+  const sendMessage = async (messageData) => {
+    if (!currentConversation) {
+      await createNewConversation();
+      return;
+    }
+
+    const userMessage = {
+      id: Date.now(),
+      content: messageData.content,
+      sender_type: 'user',
+      timestamp: new Date().toISOString(),
+      mentions: messageData.mentions || [],
+      attachments: messageData.attachments || []
     };
-  }, [agents, openChatTabs]); // Add dependencies
 
-  const fetchAgentConfig = async (id) => {
+    setMessages(prev => [...prev, userMessage]);
+    setIsLoading(true);
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/agents/${id}/config`);
-      const data = await response.json();
-      if (data.data && data.data.current_model) {
-        setSelectedModel(data.data.current_model);
+      const startTime = Date.now();
+      
+      const response = await fetch(`${API_BASE_URL}/api/conversations/${currentConversation.id}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: messageData.content,
+          mentions: messageData.mentions,
+          attachments: messageData.attachments,
+          agent_ids: selectedAgents.map(agent => agent.id)
+        })
+      });
+
+      const responseTime = Date.now() - startTime;
+      setResponseTime(responseTime);
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
       }
+
+      const data = await response.json();
+      
+      // Add agent responses
+      if (data.responses) {
+        data.responses.forEach(agentResponse => {
+          setMessages(prev => [...prev, {
+            id: Date.now() + Math.random(),
+            content: agentResponse.content,
+            sender_type: 'agent',
+            agent_name: agentResponse.agent_name,
+            timestamp: new Date().toISOString(),
+            model_used: agentResponse.model_used
+          }]);
+        });
+      }
+      
     } catch (error) {
-      console.error('Error fetching agent config:', error);
+      console.error('Error sending message:', error);
+      addNotification('Failed to send message', 'error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -144,393 +240,282 @@ function App() {
       type,
       timestamp: new Date()
     };
-    setNotifications(prev => [...prev, notification]);
     
-    // Auto remove after 5 seconds
+    setNotifications(prev => [notification, ...prev.slice(0, 4)]);
+    
+    // Auto-remove after 5 seconds
     setTimeout(() => {
       setNotifications(prev => prev.filter(n => n.id !== notification.id));
     }, 5000);
   };
 
-  const handleSendMessage = (messageContent) => { // Assume EnhancedMessageInput passes the content
-    if (!messageContent || messageContent.trim() === '') return;
-  
-    const mentions = parseMentions(messageContent);
-    // If there are mentions, they are the primary targets.
-    // If not, the target is the agent in the currently active tab.
-    const targetAgentIds = mentions.length > 0 ? mentions : [activeChatTab || selectedAgent?.id].filter(Boolean);
-  
-    if (targetAgentIds.length === 0) {
-      console.error("No target agent selected or mentioned.");
-      return;
-    }
-  
-    // Add the user's message to the conversation of the *active* agent,
-    // or the first mentioned agent if the active tab isn't one of them.
-    const primaryDisplayAgent = targetAgentIds.includes(activeChatTab) ? activeChatTab : targetAgentIds[0];
-    addMessageToAgent(primaryDisplayAgent, messageContent, 'user');
-  
-    // Emit the message to all targeted agents
-    socketRef.current.emit('send_message', {
-      content: messageContent,
-      agent_ids: targetAgentIds,
-      model: selectedModel, // Or model per agent
-    });
-    
-    setMessage('');
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage(message);
-    }
-  };
-
-  const getAgentIcon = (agentName) => {
-    const iconMap = {
-      'Communication Agent': MessageSquare,
-      'Cathy': Smile,
-      'DataMiner': Cpu,
-      'Coder': Code,
-      'Creative': Mail,
-      'Researcher': CheckCircle
-    };
-    return iconMap[agentName] || MessageSquare;
-  };
-
-  const handleTransform = async () => {
-    if (!transformText.trim()) {
-      addNotification('Please enter text to transform', 'error');
-      return;
-    }
-
-    if (!selectedAgent) {
-      addNotification('Please select an agent first', 'error');
-      return;
-    }
-
-    setIsTransforming(true);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/transform`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: transformText,
-          agent_id: selectedAgent.id
-        })
-      });
-
-      const data = await response.json();
-      
-      if (response.ok && data.data) {
-        // Copy transformed text to clipboard
-        navigator.clipboard.writeText(data.data.transformed_text);
-        addNotification('Transformed text copied to clipboard!', 'success');
-        
-        // Clear the transform input
-        setTransformText('');
-        
-        // Optionally, show the transformed text in the chat area
-        setMessage(data.data.transformed_text);
+  const toggleAgentSelection = (agent) => {
+    setSelectedAgents(prev => {
+      const isSelected = prev.find(a => a.id === agent.id);
+      if (isSelected) {
+        return prev.filter(a => a.id !== agent.id);
       } else {
-        throw new Error(data.error?.message || 'Transform failed');
+        return [...prev, agent];
       }
-    } catch (error) {
-      console.error('Transform error:', error);
-      addNotification(error.message || 'Failed to transform text', 'error');
-    } finally {
-      setIsTransforming(false);
+    });
+  };
+
+  const selectConversation = (conversation) => {
+    setCurrentConversation(conversation);
+    loadMessages(conversation.id);
+  };
+
+  const getConnectionStatusColor = () => {
+    switch (connectionStatus) {
+      case 'connected': return 'text-green-500';
+      case 'connecting': return 'text-yellow-500';
+      default: return 'text-red-500';
     }
   };
 
+  const getConnectionStatusIcon = () => {
+    switch (connectionStatus) {
+      case 'connected': return <Wifi className="w-4 h-4" />;
+      case 'connecting': return <Signal className="w-4 h-4" />;
+      default: return <WifiOff className="w-4 h-4" />;
+    }
+  };
+
+  const filteredAgents = agents.filter(agent => {
+    const matchesSearch = agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         agent.role.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = filterStatus === 'all' || agent.status === filterStatus;
+    return matchesSearch && matchesFilter;
+  });
 
   return (
-    <div className="flex h-screen bg-white">
-      {/* Professional Sidebar */}
-      <div className="w-80 bg-gray-50 border-r border-gray-200 flex flex-col">
-        {/* Header */}
-        <div className="p-6 border-b border-gray-100">
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white">
-              <Layers className="w-5 h-5" />
-            </div>
-            <div className="text-lg font-semibold text-gray-900">Swarm</div>
-          </div>
-          <span className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded mt-2">
-            Version 2.0
-          </span>
-        </div>
-
-        {/* System Status */}
-        <div className="p-4 bg-gray-100 border-b border-gray-200">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Cpu className="w-3.5 h-3.5" />
-                <span>System Status</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs font-medium text-green-600">
-                <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                <span>Connected</span>
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <CheckCircle className="w-3.5 h-3.5" />
-                <span>File Access</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs font-medium text-green-600">
-                <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                <span>Available</span>
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Settings className="w-3.5 h-3.5" />
-                <span>Memory</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs font-medium text-yellow-600">
-                <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></div>
-                <span>Limited</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Available Agents */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="mb-4">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-              Available Agents
-            </h3>
-          </div>
-          <div className="space-y-2">
-            {agents.length > 0 ? (
-              agents.map((agent) => {
-                const IconComponent = getAgentIcon(agent.name);
-                const isSelected = selectedAgent?.id === agent.id;
-                
-                return (
-                  <div
-                    key={agent.id}
-                    className={`flex items-center p-3.5 rounded-lg cursor-pointer transition-all duration-200 border ${
-                      isSelected 
-                        ? 'bg-blue-500 border-blue-500 text-white shadow-md' 
-                        : 'bg-white border-gray-100 hover:border-blue-200 hover:shadow-sm hover:-translate-y-0.5'
-                    }`}
-                    onClick={() => setSelectedAgent(agent)}
-                  >
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3.5 ${
-                      isSelected ? 'bg-white/20' : 'bg-gray-100'
-                    }`}>
-                      <IconComponent className={`w-5 h-5 ${
-                        isSelected ? 'text-white' : 'text-gray-600'
-                      }`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className={`text-sm font-semibold ${
-                        isSelected ? 'text-white' : 'text-gray-900'
-                      }`}>
-                        {agent.name}
-                      </div>
-                      <div className={`text-xs ${
-                        isSelected ? 'text-white/80' : 'text-gray-500'
-                      } truncate`}>
-                        {agent.role}
-                      </div>
-                    </div>
-                    <div className={`w-2 h-2 rounded-full ${
-                      agent.status === 'idle' ? 'bg-green-400' : 'bg-yellow-400'
-                    } ${isSelected ? '' : 'opacity-60'}`}></div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-center text-gray-500 py-8">
-                <Cpu className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p className="text-sm">Loading agents...</p>
+    <div className={`h-screen flex ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
+      
+      {/* Sidebar */}
+      <div className={`${sidebarCollapsed ? 'w-16' : 'w-80'} bg-white border-r border-gray-200 flex flex-col transition-all duration-300`}>
+        
+        {/* Sidebar Header */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            {!sidebarCollapsed && (
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">🤖 Swarm Agents</h1>
+                <p className="text-sm text-gray-500">Multi-Agent AI System</p>
               </div>
             )}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Quick Transform Bar */}
-        <div className="p-4 bg-gray-100 border-b border-gray-200 flex gap-3 items-center">
-          <input
-            type="text"
-            value={transformText}
-            onChange={(e) => setTransformText(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey && !isTransforming) {
-                e.preventDefault();
-                handleTransform();
-              }
-            }}
-            placeholder="Paste text here for quick transformation..."
-            className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 transition-colors"
-            disabled={isTransforming}
-          />
-          <button 
-            onClick={handleTransform}
-            disabled={isTransforming || !selectedAgent}
-            className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-              isTransforming || !selectedAgent
-                ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                : 'bg-blue-500 text-white hover:bg-blue-600'
-            }`}
-          >
-            <Settings className={`w-4 h-4 ${isTransforming ? 'animate-spin' : ''}`} />
-            {isTransforming ? 'Transforming...' : 'Transform'}
-          </button>
-        </div>
-
-        {/* Chat Header */}
-        <div className="p-5 bg-white border-b border-gray-200 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h2 className="text-xl font-semibold text-gray-900">
-              {selectedAgent ? selectedAgent.name : 'Welcome to Swarm'}
-            </h2>
-            {selectedAgent && (
-              <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-600">
-                <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                <span>Active</span>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {/* Model Selector */}
-            <div className="relative">
-              <button
-                onClick={() => setShowModelDropdown(!showModelDropdown)}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-200 rounded-lg text-sm hover:border-blue-500 transition-colors"
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>{selectedModel}</span>
-                <ChevronDown className="w-3 h-3" />
-              </button>
-              {showModelDropdown && (
-                <div className="absolute top-full right-0 mt-2 w-70 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                  {modelOptions.map((model) => (
-                    <div
-                      key={model.id || model.name}
-                      className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                      onClick={() => {
-                        setSelectedModel(model.id || model.name);
-                        setShowModelDropdown(false);
-                      }}
-                    >
-                      <div className="text-sm font-medium text-gray-900">{model.name}</div>
-                      <div className="text-xs text-gray-500">{model.description}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <button className="w-9 h-9 border border-gray-200 bg-white rounded-lg flex items-center justify-center hover:bg-gray-50 hover:border-blue-500 transition-colors">
-              <Sun className="w-4 h-4 text-gray-600" />
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <Menu className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Chat Messages */}
-        <div className="flex-1 flex items-center justify-center bg-white">
-          {!selectedAgent ? (
-            <div className="text-center max-w-4xl mx-auto px-12">
-              <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Layers className="w-12 h-12 text-blue-500" />
-              </div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-3">Welcome to Swarm</h1>
-              <p className="text-gray-600 mb-12 text-lg leading-relaxed">
-                Your intelligent multi-agent collaboration platform. Select an agent to begin, or use @mentions to collaborate with multiple agents simultaneously.
-              </p>
-              <div className="grid grid-cols-3 gap-4 max-w-3xl mx-auto">
-                <div className="p-6 bg-gray-50 border border-gray-100 rounded-xl hover:bg-gray-100 hover:border-blue-200 hover:-translate-y-1 transition-all duration-200 cursor-pointer">
-                  <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center mb-4">
-                    <MessageSquare className="w-6 h-6 text-blue-500" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Communications</h3>
-                  <p className="text-sm text-gray-600">Transform text into clear, professional communication</p>
-                </div>
-                <div className="p-6 bg-gray-50 border border-gray-100 rounded-xl hover:bg-gray-100 hover:border-blue-200 hover:-translate-y-1 transition-all duration-200 cursor-pointer">
-                  <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center mb-4">
-                    <Mail className="w-6 h-6 text-blue-500" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Email Assistant</h3>
-                  <p className="text-sm text-gray-600">Professional email composition and strategy</p>
-                </div>
-                <div className="p-6 bg-gray-50 border border-gray-100 rounded-xl hover:bg-gray-100 hover:border-blue-200 hover:-translate-y-1 transition-all duration-200 cursor-pointer">
-                  <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center mb-4">
-                    <Code className="w-6 h-6 text-blue-500" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Code Assistant</h3>
-                  <p className="text-sm text-gray-600">Clean code generation and technical solutions</p>
-                </div>
+        {/* System Status */}
+        {!sidebarCollapsed && (
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700">System Status</span>
+              <div className={`flex items-center space-x-1 ${getConnectionStatusColor()}`}>
+                {getConnectionStatusIcon()}
+                <span className="text-xs capitalize">{connectionStatus}</span>
               </div>
             </div>
-          ) : (
-            <div className="flex flex-col w-full p-4 overflow-y-auto space-y-4">
-              {chatMessages.map((msg, idx) => (
-                <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`px-3 py-2 rounded-lg max-w-xl break-words ${msg.sender === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-900'}`}>
-                    {msg.agent_name && <strong className="mr-2">{msg.agent_name}:</strong>}
-                    {msg.content}
-                  </div>
+            
+            {systemHealth && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span>CPU</span>
+                  <span>{systemHealth.system?.cpu_percent?.toFixed(1)}%</span>
                 </div>
+                <div className="flex justify-between text-xs">
+                  <span>Memory</span>
+                  <span>{systemHealth.system?.memory_percent?.toFixed(1)}%</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span>Response Time</span>
+                  <span>{responseTime}ms</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Agent Search and Filter */}
+        {!sidebarCollapsed && (
+          <div className="p-4 border-b border-gray-200">
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search agents..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Agents</option>
+              <option value="idle">Available</option>
+              <option value="busy">Busy</option>
+              <option value="offline">Offline</option>
+            </select>
+          </div>
+        )}
+
+        {/* Agents List */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {filteredAgents.map(agent => (
+            <EnhancedAgentCard
+              key={agent.id}
+              agent={agent}
+              isSelected={selectedAgents.find(a => a.id === agent.id)}
+              onSelect={() => toggleAgentSelection(agent)}
+              performance={agentPerformance[agent.id]}
+              isOnline={agent.status !== 'offline'}
+            />
+          ))}
+        </div>
+
+        {/* Selected Agents Summary */}
+        {!sidebarCollapsed && selectedAgents.length > 0 && (
+          <div className="p-4 border-t border-gray-200 bg-blue-50">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-blue-900">
+                Selected Agents ({selectedAgents.length})
+              </span>
+              <button
+                onClick={() => setSelectedAgents([])}
+                className="text-xs text-blue-600 hover:text-blue-800"
+              >
+                Clear All
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {selectedAgents.map(agent => (
+                <span key={agent.id} className="px-2 py-1 bg-blue-200 text-blue-800 text-xs rounded-full">
+                  {agent.name}
+                </span>
               ))}
-              {chatMessages.length === 0 && (
-                <div className="text-center text-gray-400">Start chatting with {selectedAgent.name}. Use @mentions to involve other agents.</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                {currentConversation ? currentConversation.title : 'New Conversation'}
+              </h2>
+              <p className="text-sm text-gray-500">
+                {selectedAgents.length > 0 
+                  ? `Collaborating with ${selectedAgents.map(a => a.name).join(', ')}`
+                  : 'Select agents to start collaborating'
+                }
+              </p>
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              {/* Performance Indicator */}
+              <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <Activity className="w-4 h-4" />
+                <span>{responseTime}ms</span>
+              </div>
+              
+              {/* Notifications */}
+              <div className="relative">
+                <button className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                  <Bell className="w-5 h-5 text-gray-600" />
+                  {notifications.length > 0 && (
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
+                  )}
+                </button>
+              </div>
+              
+              {/* Settings */}
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <Settings className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {messages.length === 0 ? (
+            <div className="text-center py-12">
+              <Bot className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Ready to collaborate!</h3>
+              <p className="text-gray-500 mb-4">
+                Select agents from the sidebar and start a conversation.
+              </p>
+              {selectedAgents.length === 0 && (
+                <p className="text-sm text-gray-400">
+                  💡 Tip: Use @mentions to bring specific agents into the conversation
+                </p>
               )}
             </div>
+          ) : (
+            <>
+              {messages.map((message, index) => (
+                <EnhancedMessage
+                  key={message.id || index}
+                  message={message}
+                  onReact={(messageId, emoji) => console.log('React:', messageId, emoji)}
+                  onBookmark={(messageId, bookmarked) => console.log('Bookmark:', messageId, bookmarked)}
+                  onCopy={(messageId) => addNotification('Message copied to clipboard', 'success')}
+                  onReply={(message) => console.log('Reply to:', message)}
+                />
+              ))}
+              <div ref={messagesEndRef} />
+            </>
           )}
         </div>
 
         {/* Message Input */}
-        {selectedAgent && (
-          <div className="p-5 bg-white border-t border-gray-200">
-            <div className="flex gap-3 items-end">
-              <div className="flex-1">
-                <textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Type your message... Use @ to mention other agents"
-                  className="w-full min-h-[44px] max-h-[120px] px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl resize-none focus:outline-none focus:border-blue-500 focus:bg-white transition-colors text-sm"
-                  rows="1"
-                />
-              </div>
-              <button
-                onClick={() => handleSendMessage(message)}
-                className="w-11 h-11 bg-blue-500 text-white rounded-xl flex items-center justify-center hover:bg-blue-600 hover:-translate-y-0.5 transition-all duration-200 shadow-md"
-              >
-                <Send className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Notifications */}
-        {notifications.map((notification) => (
-          <div
-            key={notification.id}
-            className={`fixed top-4 right-4 px-4 py-3 rounded-lg text-sm font-medium shadow-lg z-50 ${
-              notification.type === 'error' 
-                ? 'bg-red-100 text-red-800 border border-red-200' 
-                : notification.type === 'success'
-                ? 'bg-green-100 text-green-800 border border-green-200'
-                : 'bg-blue-100 text-blue-800 border border-blue-200'
-            }`}
-          >
-            {notification.message}
-          </div>
-        ))}
+        <EnhancedMessageInput
+          onSendMessage={sendMessage}
+          agents={agents}
+          isLoading={isLoading}
+          placeholder={
+            selectedAgents.length > 0
+              ? `Message ${selectedAgents.map(a => a.name).join(', ')}...`
+              : "Select agents and start typing..."
+          }
+        />
       </div>
+
+      {/* Notifications */}
+      {notifications.length > 0 && (
+        <div className="fixed top-4 right-4 space-y-2 z-50">
+          {notifications.map(notification => (
+            <div
+              key={notification.id}
+              className={`px-4 py-3 rounded-lg shadow-lg ${
+                notification.type === 'error' ? 'bg-red-500 text-white' :
+                notification.type === 'success' ? 'bg-green-500 text-white' :
+                'bg-blue-500 text-white'
+              }`}
+            >
+              {notification.message}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
