@@ -4,17 +4,18 @@ services:
     env: python
     region: oregon
     plan: starter
-    # Setup script for debugging and verification
-    preDeployCommand: |
-      chmod +x setup.sh
-      ./setup.sh
-    # Build command with enhanced dependency management
+    # Node.js version for frontend build
     buildCommand: |
       echo "🔧 Starting build process..."
       echo "📦 Installing Python dependencies..."
       pip install --upgrade pip
       pip install -r requirements.txt
       echo "🔨 Building React frontend..."
+      # Install Node.js 20 (required for modern React/Vite)
+      curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+      sudo apt-get install -y nodejs
+      echo "📋 Node.js version: $(node --version)"
+      echo "📋 NPM version: $(npm --version)"
       cd frontend
       npm install
       npm run build
