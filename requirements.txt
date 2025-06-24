@@ -38,6 +38,9 @@ psutil==7.0.0
 # Data validation (updated for Python 3.13 compatibility)
 pydantic==2.10.3
 
+# Retry utilities
+tenacity==8.2.3
+
 # Utilities
 click==8.1.7
 python-dateutil==2.8.2

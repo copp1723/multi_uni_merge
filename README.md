@@ -130,7 +130,8 @@ See [DEPLOYMENT_GUIDE.md](./docs/DEPLOYMENT_GUIDE.md) for detailed instructions.
 **✅ 100% Test Success Rate (7/7 tests passing)**
 
 - Repository Structure ✅
-- Backend Dependencies ✅  
+- Backend Dependencies ✅
+- Tenacity-based retry logic added (install via `pip install -r config/requirements.txt`)
 - Frontend Dependencies ✅
 - Configuration Files ✅
 - Documentation ✅
