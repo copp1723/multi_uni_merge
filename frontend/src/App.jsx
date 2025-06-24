@@ -102,19 +102,29 @@ function App() {
 
   // Performance monitoring
   const startPerformanceMonitoring = () => {
-    performanceIntervalRef.current = setInterval(async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/monitoring/health`);
-        const health = await response.json();
-        setSystemHealth(health);
-        
-        const metricsResponse = await fetch(`${API_BASE_URL}/api/monitoring/metrics`);
-        const metrics = await metricsResponse.json();
-        setResponseTime(metrics.performance.avg_response_time);
-      } catch (error) {
-        console.error('Performance monitoring error:', error);
+    // Temporarily disabled - endpoints not implemented yet
+    // performanceIntervalRef.current = setInterval(async () => {
+    //   try {
+    //     const response = await fetch(`${API_BASE_URL}/api/monitoring/health`);
+    //     const health = await response.json();
+    //     setSystemHealth(health);
+    //     
+    //     const metricsResponse = await fetch(`${API_BASE_URL}/api/monitoring/metrics`);
+    //     const metrics = await metricsResponse.json();
+    //     setResponseTime(metrics.performance.avg_response_time);
+    //   } catch (error) {
+    //     console.error('Performance monitoring error:', error);
+    //   }
+    // }, 10000); // Update every 10 seconds
+
+    // Set mock data for now
+    setSystemHealth({
+      system: {
+        cpu_percent: 45.2,
+        memory_percent: 62.8
       }
-    }, 10000); // Update every 10 seconds
+    });
+    setResponseTime(125);
 
     return () => {
       if (performanceIntervalRef.current) {
@@ -151,34 +161,25 @@ function App() {
   };
 
   const createNewConversation = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/conversations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: `New Conversation ${new Date().toLocaleString()}`,
-          agent_ids: selectedAgents.map(agent => agent.id)
-        })
-      });
-      
-      const data = await response.json();
-      const newConversation = data.conversation;
-      
-      setConversations(prev => [newConversation, ...prev]);
-      setCurrentConversation(newConversation);
-      setMessages([]);
-      
-      addNotification('New conversation created', 'success');
-    } catch (error) {
-      console.error('Error creating conversation:', error);
-      addNotification('Failed to create conversation', 'error');
-    }
+    // Conversations endpoint not implemented - use mock data
+    const newConversation = {
+      id: Date.now(),
+      title: `New Conversation ${new Date().toLocaleString()}`,
+      agent_ids: selectedAgents.map(agent => agent.id),
+      created_at: new Date().toISOString()
+    };
+    
+    setConversations(prev => [newConversation, ...prev]);
+    setCurrentConversation(newConversation);
+    setMessages([]);
+    
+    addNotification('New conversation created', 'success');
   };
 
   const sendMessage = async (messageData) => {
     if (!currentConversation) {
       await createNewConversation();
-      return;
+      if (!currentConversation) return; // Still no conversation
     }
 
     const userMessage = {
@@ -196,14 +197,14 @@ function App() {
     try {
       const startTime = Date.now();
       
-      const response = await fetch(`${API_BASE_URL}/api/conversations/${currentConversation.id}/messages`, {
+      // Use the transform endpoint instead
+      const response = await fetch(`${API_BASE_URL}/api/transform`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          content: messageData.content,
-          mentions: messageData.mentions,
-          attachments: messageData.attachments,
-          agent_ids: selectedAgents.map(agent => agent.id)
+          text: messageData.content,
+          agent_id: selectedAgents[0]?.id || 'communication_agent',
+          model: 'openai/gpt-4o'
         })
       });
 
@@ -216,18 +217,16 @@ function App() {
 
       const data = await response.json();
       
-      // Add agent responses
-      if (data.responses) {
-        data.responses.forEach(agentResponse => {
-          setMessages(prev => [...prev, {
-            id: Date.now() + Math.random(),
-            content: agentResponse.content,
-            sender_type: 'agent',
-            agent_name: agentResponse.agent_name,
-            timestamp: new Date().toISOString(),
-            model_used: agentResponse.model_used
-          }]);
-        });
+      // Add agent response
+      if (data.status === 'success' && data.data) {
+        setMessages(prev => [...prev, {
+          id: Date.now() + Math.random(),
+          content: data.data.transformed_text,
+          sender_type: 'agent',
+          agent_name: selectedAgents[0]?.name || 'Assistant',
+          timestamp: new Date().toISOString(),
+          model_used: data.data.model_used
+        }]);
       }
       
     } catch (error) {
