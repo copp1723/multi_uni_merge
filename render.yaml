@@ -11,18 +11,48 @@ services:
     # Build command with enhanced dependency management
     buildCommand: |
       echo "🔧 Starting build process..."
+      echo "Current directory: $(pwd)"
+      echo "Directory contents:"
+      ls -la
+      
       echo "📦 Installing Python dependencies..."
       pip install --upgrade pip
       pip install -r requirements.txt
+      
       echo "🔨 Building React frontend..."
+      echo "Checking frontend directory..."
+      ls -la frontend/
+      
       cd frontend
+      echo "Installing npm dependencies..."
       npm install
+      
+      echo "Running build..."
       npm run build
+      
+      echo "Build complete, checking output..."
+      ls -la dist/
+      
+      if [ -d "dist/assets" ]; then
+        echo "Assets directory contents:"
+        ls -la dist/assets/
+      fi
+      
       cd ..
-      echo "📁 Verifying frontend build..."
+      
+      echo "📁 Verifying frontend build from root..."
       ls -la frontend/dist/
+      
+      # Ensure static files are accessible
+      if [ -f "frontend/dist/index.html" ]; then
+        echo "✅ index.html found"
+      else
+        echo "❌ ERROR: index.html not found!"
+        exit 1
+      fi
+      
       echo "✅ Verifying critical packages..."
-      pip list | grep -E "(flask|gunicorn|psycopg2|requests|pydantic)"
+      pip list | grep -E "(flask|gunicorn|psycopg2|requests)"
       echo "✅ Build completed successfully!"
     # Start command with enhanced logging and timeout
     startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --access-logfile - --error-logfile - --log-level info app:app

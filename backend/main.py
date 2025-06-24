@@ -132,9 +132,8 @@ class SwarmApplication:
         # Register routes
         self._register_routes()
 
-        # Conditionally register test/diagnostic routes if DEBUG is true
-        if self.config["DEBUG"]:
-            self._register_diagnostic_routes()
+        # Register diagnostic routes (temporarily enabled in production for debugging)
+        self._register_diagnostic_routes()
 
         return app
 
@@ -177,7 +176,12 @@ class SwarmApplication:
             """Serve the frontend application"""
             try:
                 return self.app.send_static_file("index.html")
-            except Exception:
+            except Exception as e:
+                # Log the error for debugging
+                logger.error(f"Failed to serve index.html: {e}")
+                logger.error(f"Static folder: {self.app.static_folder}")
+                logger.error(f"Static folder exists: {os.path.exists(self.app.static_folder) if self.app.static_folder else False}")
+                
                 # Try to serve temporary static page
                 static_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static_index.html")
                 if os.path.exists(static_path):
@@ -190,12 +194,15 @@ class SwarmApplication:
                             "version": "3.0.0",
                             "status": "operational",
                             "note": "Frontend not built - showing API info",
+                            "static_folder": self.app.static_folder,
+                            "static_exists": os.path.exists(self.app.static_folder) if self.app.static_folder else False,
                             "endpoints": {
                                 "health": "/api/health",
                                 "system": "/api/system",
                                 "agents": "/api/agents",
                                 "conversations": "/api/conversations",
                                 "websocket": "/socket.io",
+                                "diagnostics": "/api/diagnostics",
                             },
                             "features": [
                                 "6 Specialized AI Agents (including Communication Agent)",
