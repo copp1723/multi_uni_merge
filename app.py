@@ -20,8 +20,9 @@ logger = logging.getLogger(__name__)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # CRITICAL: Patch eventlet BEFORE any other imports for WebSocket support
-import eventlet
-eventlet.monkey_patch()
+# Temporarily disabled due to Python 3.13 compatibility issues
+# import eventlet
+# eventlet.monkey_patch()
 
 # Import Flask for static file handling
 from flask import send_from_directory, send_file
